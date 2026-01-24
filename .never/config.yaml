@@ -1,0 +1,14 @@
+version: 1
+rules:
+  - core
+  - hygiene
+  - python
+  - security
+  - ai-guidelines
+  - code-quality
+targets:
+  cursor: false
+  claude: false
+  copilot: false
+  agents: true
+autoDetect: true
