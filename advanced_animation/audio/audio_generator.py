@@ -26,9 +26,9 @@ try:
     import pydub
     from pydub import AudioSegment
     from pydub.generators import WhiteNoise
-    PYSRT_AVAILABLE = True
+    ADVANCED_AUDIO_AVAILABLE = True
 except ImportError:
-    PYSRT_AVAILABLE = False
+    ADVANCED_AUDIO_AVAILABLE = False
 
 class AudioGenerator:
     """Handles text-to-speech generation using ElevenLabs API."""
@@ -74,14 +74,12 @@ class AudioGenerator:
             'ar': 'Arabic'
         }
         
-        # Multi-voice support
-        self.voice_options = {
-            'male': 'ErXwobaYiN019PkySvjV',  # Adam voice
-            'female': '21m00Tcm4TlvDq8ikWAM',  # Rachel voice
-            'child': 'EXAVITQu4vr4xnSDxMaL',  # Child voice
-            'elderly': 'MF3mGyEYCl7XYWbV9V6O',  # Elderly voice
-            'robot': 'TxGEqnHWrfWFTfGW9XjX'  # Robot voice
-        }
+        # Multi-voice support - will be populated dynamically
+        self.voice_options = {}
+        
+        # Background music settings
+        self.background_music_enabled = False
+        self.background_music_volume = -20  # dB
         
         # Background music settings
         self.background_music_enabled = False
@@ -140,9 +138,7 @@ class AudioGenerator:
             # Use voice type if specified
             if voice_type in self.voice_options:
                 voice_id = self.voice_options[voice_type]
-            elif voice_id:
-                voice_id = voice_id
-            else:
+            elif not voice_id:
                 voice_id = self.default_voice_id
             
             # Prepare the request
@@ -176,7 +172,7 @@ class AudioGenerator:
                 logger.info(f"Audio generated successfully: {output_path}")
                 
                 # Add background music if requested
-                if add_background_music and PYSRT_AVAILABLE:
+                if add_background_music and ADVANCED_AUDIO_AVAILABLE:
                     self._add_background_music(output_path)
                 
                 return True
@@ -288,7 +284,7 @@ class AudioGenerator:
         Args:
             audio_path: Path to the audio file
         """
-        if not PYSRT_AVAILABLE:
+        if not ADVANCED_AUDIO_AVAILABLE:
             logger.warning("pydub not available for background music")
             return
         
@@ -316,9 +312,9 @@ class AudioGenerator:
             logger.info(f"Added background music to: {audio_path}")
             
         except Exception as e:
-            logger.error(f"Error adding background music: {e}")
+            logger.exception(f"Error adding background music: {e}")
     
-    def generate_subtitles(self, text: str, output_path: str, language: str = 'en') -> bool:
+    def generate_subtitles(self, text: str, output_path: str) -> bool:
         """
         Generate subtitle file for the given text.
         
@@ -330,7 +326,7 @@ class AudioGenerator:
         Returns:
             bool: True if successful, False otherwise
         """
-        if not PYSRT_AVAILABLE:
+        if not ADVANCED_AUDIO_AVAILABLE:
             logger.warning("pysrt not available for subtitle generation")
             return False
         
@@ -363,9 +359,12 @@ class AudioGenerator:
             logger.info(f"Generated subtitles: {output_path}")
             return True
             
-        except Exception as e:
-            logger.error(f"Error generating subtitles: {e}")
-            return False
+         except (IOError, OSError, ValueError) as e:
+             logger.error(f"Error generating subtitles: {e}")
+             return False
+         except Exception as e:
+             logger.exception(f"Unexpected error generating subtitles: {e}")
+             return False
     
     def generate_scene_audio_with_subtitles(self, scene_narration: str, scene_id: int, output_dir: str, 
                                           language: str = 'en', voice_type: str = 'female') -> Dict[str, str]:

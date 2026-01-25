@@ -17,13 +17,6 @@ try:
 except ImportError:
     MANIM_3D_AVAILABLE = False
 
-# Interactive HTML imports
-try:
-    import ipywidgets as widgets
-    from IPython.display import display, HTML
-    INTERACTIVE_AVAILABLE = True
-except ImportError:
-    INTERACTIVE_AVAILABLE = False
 
 # ManimGL imports (3Blue1Brown's original version)
 try:

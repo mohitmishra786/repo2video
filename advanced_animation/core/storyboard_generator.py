@@ -30,19 +30,22 @@ try:
     from langchain.prompts import PromptTemplate
     from langchain.llms import OpenAI, Groq
     LANGCHAIN_AVAILABLE = True
-except ImportError:
+except ImportError as exc:
+    logger.info("LangChain not available: %s", exc)
     LANGCHAIN_AVAILABLE = False
 
 try:
     import anthropic
     CLAUDE_AVAILABLE = True
-except ImportError:
+except ImportError as exc:
+    logger.info("Anthropic SDK not available: %s", exc)
     CLAUDE_AVAILABLE = False
 
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
-except ImportError:
+except ImportError as exc:
+    logger.info("Google Generative AI SDK not available: %s", exc)
     GEMINI_AVAILABLE = False
 
 class StoryboardGenerator:

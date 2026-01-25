@@ -55,6 +55,10 @@ try:
 except ImportError:
     VECTOR_EMBEDDINGS_AVAILABLE = False
 
+# Vector embedding configuration
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDING_DIMENSION = 384
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,19 +164,153 @@ class EnhancedCodeAnalyzer:
         
         try:
             # Load sentence transformer model
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
             
             # Initialize FAISS index
-            dimension = 384  # Dimension for all-MiniLM-L6-v2
-            self.vector_db = faiss.IndexFlatL2(dimension)
+            self.vector_db = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
+            
+            # Map for storing document content (id -> content)
+            self.doc_map = {}
+            self.next_id = 0
             
             logger.info("Vector embeddings initialized for semantic search")
             
         except Exception as e:
-            logger.error(f"Failed to setup vector embeddings: {e}")
+            logger.exception("Failed to setup vector embeddings")
             self.vector_db = None
             self.embedding_model = None
+            self.doc_map = {}
+            
+    def _embed_text(self, text: str) -> np.ndarray:
+        """
+        Embed text using the configured model.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            Numpy array containing the embedding
+        """
+        if not self.embedding_model:
+            return np.zeros((1, EMBEDDING_DIMENSION), dtype='float32')
+            
+        return self.embedding_model.encode([text])
+        
+    def add_document(self, content: str, metadata: Dict[str, Any] = None) -> int:
+        """
+        Add a document to the vector database.
+        
+        Args:
+            content: Document content (code or text)
+            metadata: Optional metadata
+            
+        Returns:
+            Document ID
+        """
+        if not self.vector_db or not self.embedding_model:
+            return -1
+            
+        # Create embedding
+        embedding = self._embed_text(content)
+        
+        # Add to index
+        self.vector_db.add(embedding)
+        
+        # Store content mapping
+        doc_id = self.next_id
+        self.doc_map[doc_id] = {
+            'content': content,
+            'metadata': metadata or {}
+        }
+        self.next_id += 1
+        
+        return doc_id
+        
+    def semantic_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Perform semantic search.
+        
+        Args:
+            query: Search query
+            k: Number of results to return
+            
+        Returns:
+            List of matching documents with scores
+        """
+        if not self.vector_db or not self.embedding_model:
+            return []
+            
+        # Embed query
+        query_embedding = self._embed_text(query)
+        
+        # Search
+        distances, indices = self.vector_db.search(query_embedding, k)
+        
+        results = []
+        for i, idx in enumerate(indices[0]):
+            if idx != -1 and idx in self.doc_map:
+                doc = self.doc_map[idx]
+                results.append({
+                    'content': doc['content'],
+                    'metadata': doc['metadata'],
+                    'score': float(distances[0][i])
+                })
+                
+        return results
     
+    def _analyze_in_chunks(self, code_files: List[Path], chunk_size: int) -> Dict[str, Any]:
+        """
+        Analyze code files in chunks to avoid memory issues.
+        
+        Args:
+            code_files: List of files to analyze
+            chunk_size: Number of files per chunk
+            
+        Returns:
+            Combined analysis result
+        """
+        combined_analysis = {
+            'project_info': self._get_project_info(),
+            'files': {},
+            'dependencies': [],
+            'call_graph': None,
+            'error_patterns': [],
+            'metrics': {}
+        }
+        
+        # Split into chunks
+        chunks = [code_files[i:i + chunk_size] for i in range(0, len(code_files), chunk_size)]
+        
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Processing chunk {i+1}/{len(chunks)} ({len(chunk)} files)")
+            
+            # Temporarily mock the file getter to return just this chunk
+            original_get_code_files = self._get_code_files
+            self._get_code_files = lambda: chunk
+            
+            try:
+                # Run analysis for this chunk (recursive call with no chunking)
+                chunk_result = self.analyze_project(chunk_size=None)
+                
+                # Merge results
+                combined_analysis['files'].update(chunk_result.get('files', {}))
+                combined_analysis['error_patterns'].extend(chunk_result.get('error_patterns', []))
+                
+                # Merge dependencies if present
+                deps = chunk_result.get('dependencies', [])
+                if isinstance(deps, list):
+                    combined_analysis['dependencies'].extend(deps)
+                elif isinstance(deps, dict) and isinstance(combined_analysis['dependencies'], dict):
+                    combined_analysis['dependencies'].update(deps)
+                    
+            except Exception as e:
+                logger.error(f"Error analyzing chunk {i+1}: {e}", exc_info=True)
+            finally:
+                # Restore original method
+                self._get_code_files = original_get_code_files
+                
+        return combined_analysis
+
     def analyze_project(self, chunk_size: Optional[int] = None) -> Dict[str, Any]:
         """
         Perform comprehensive analysis of the entire project.
@@ -846,16 +984,32 @@ class EnhancedCodeAnalyzer:
         
         if extension == '.py':
             return LanguageType.PYTHON
-        elif extension in ['.js', '.jsx', '.ts', '.tsx']:
+        elif extension in ['.js', '.jsx']:
             return LanguageType.JAVASCRIPT
+        elif extension in ['.ts', '.tsx']:
+            return LanguageType.TYPESCRIPT
         elif extension == '.java':
             return LanguageType.JAVA
+        elif extension == '.rs':
+            return LanguageType.RUST
+        elif extension == '.go':
+            return LanguageType.GO
+        elif extension in ['.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h']:
+            return LanguageType.CPP
         else:
             return LanguageType.UNKNOWN
     
     def _get_code_files(self) -> List[Path]:
         """Get all code files in the project."""
-        code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.java'}
+        code_extensions = {
+            '.py', 
+            '.js', '.jsx', 
+            '.ts', '.tsx', 
+            '.java',
+            '.rs',
+            '.go',
+            '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h'
+        }
         code_files = []
         
         # Directories to skip

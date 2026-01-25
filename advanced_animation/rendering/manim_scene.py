@@ -186,6 +186,10 @@ class AdvancedManimScene(Scene):
         self.visual_elements = {}
         self.animations = []
         
+        # Initialize E2B configuration
+        self.enable_e2b = False
+        self.e2b_client = None
+        
         logger.info(f"AdvancedManimScene initialized for scene {storyboard_scene.id}")
     
     def construct(self):
@@ -481,10 +485,6 @@ class ManimSceneRenderer:
         except Exception as e:
             logger.error(f"E2B execution failed: {e}")
             return None
-            
-        except Exception as e:
-            logger.error(f"Error creating scene file: {e}")
-            raise
     
     def generate_scene_code(self, storyboard_scene: StoryboardScene) -> str:
         """
@@ -496,12 +496,6 @@ class ManimSceneRenderer:
         Returns:
             Generated Manim scene code
         """
-        # Import the necessary Manim classes
-        if MANIMGL_AVAILABLE:
-            from manimlib import *
-        elif MANIM_AVAILABLE:
-            from manim import *
-        
         # Create a unique class name for this scene
         scene_class_name = f"Scene{storyboard_scene.id}"
         
@@ -544,12 +538,48 @@ class {scene_class_name}(Scene):
         self.play(FadeOut(title), FadeOut(content))
 """
         
-        return scene_code
-            
-        except Exception as e:
-            logger.error(f"Error generating scene code: {e}")
-            raise
+         return scene_code
     
+    def _generate_visual_elements_code(self, storyboard_scene: StoryboardScene) -> str:
+        """Generate code for visual elements."""
+        code = ""
+        for element in storyboard_scene.visual_elements:
+            # Generate code for creating each visual element
+            # This is a simplified version, in a real implementation this would be more complex
+            # and potentially use the VisualMetaphorLibrary to generate specific code
+            if element.type == "Text":
+                code += f'        {element.id} = Text("{element.content}")\n'
+            elif element.type == "Code":
+                code += f'        {element.id} = Code("{element.content}")\n'
+            else:
+                code += f'        {element.id} = Text("{element.content}")\n'
+            
+            # Position
+            pos = element.position
+            code += f'        {element.id}.move_to([{pos.get("x", 0)}, {pos.get("y", 0)}, {pos.get("z", 0)}])\n'
+            
+        return code
+
+    def _generate_code_execution_results(self, storyboard_scene: StoryboardScene) -> str:
+        """Generate code for displaying execution results."""
+        # This would generate Manim code to display the output of code execution
+        # For now, we'll return a placeholder comment
+        return "        # Code execution results would appear here"
+
+    def _generate_animation_steps_code(self, storyboard_scene: StoryboardScene) -> str:
+        """Generate code for animation steps."""
+        code = ""
+        for step in storyboard_scene.animation_steps:
+            if step.action == "FadeIn":
+                code += f'        self.play(FadeIn({step.target_element_id}), run_time={step.duration})\n'
+            elif step.action == "FadeOut":
+                code += f'        self.play(FadeOut({step.target_element_id}), run_time={step.duration})\n'
+            elif step.action == "Create":
+                code += f'        self.play(Create({step.target_element_id}), run_time={step.duration})\n'
+            # Add more actions as needed
+            
+        return code
+
     def _generate_rich_content(self, storyboard_scene: StoryboardScene) -> str:
         """Generate rich content based on scene concept and actual repository data."""
         concept = storyboard_scene.concept.lower()
