@@ -13,8 +13,11 @@ import json
 logger = logging.getLogger(__name__)
 
 try:
-    import moviepy.editor as mpy
-    from moviepy.editor import VideoFileClip, concatenate_videoclips, CompositeVideoClip, TextClip
+    from moviepy.video.io.VideoFileClip import VideoFileClip
+    from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+    from moviepy.video.VideoClip import TextClip, ColorClip
+    from moviepy import concatenate_videoclips
+    import moviepy as mpy
     MOVIEPY_AVAILABLE = True
 except ImportError:
     MOVIEPY_AVAILABLE = False
