@@ -8,78 +8,127 @@ analyzing repository structure, and extracting relevant information for video ge
 import re
 import ast
 import markdown
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from github import Github, GithubException
 from github.Repository import Repository
 from github.ContentFile import ContentFile
 import requests
+import logging
+from urllib.parse import urlparse
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class RepoFetcher:
-    """Handles fetching and analyzing GitHub repositories."""
+    """Handles fetching and analyzing repositories from GitHub, GitLab, and Bitbucket."""
     
-    def __init__(self, github_token: Optional[str] = None):
+    def __init__(self, github_token: Optional[str] = None, gitlab_token: Optional[str] = None, bitbucket_token: Optional[str] = None):
         """
         Initialize the RepoFetcher.
         
         Args:
             github_token: Optional GitHub token for authentication
+            gitlab_token: Optional GitLab token for authentication
+            bitbucket_token: Optional Bitbucket token for authentication
         """
         self.github = Github(github_token) if github_token else Github()
+        self.gitlab_token = gitlab_token
+        self.bitbucket_token = bitbucket_token
         self.rate_limit = self.github.get_rate_limit()
+        
+        # Initialize GitLab and Bitbucket clients only when needed
+        self._gitlab_client = None
+        self._bitbucket_client = None
     
-    def validate_github_url(self, url: str) -> Tuple[bool, str, str]:
+    def validate_repo_url(self, url: str) -> Tuple[bool, str, str, str]:
         """
-        Validate if the URL is a valid GitHub repository URL.
+        Validate if the URL is a valid repository URL and identify the platform.
         
         Args:
-            url: The GitHub repository URL
+            url: The repository URL
             
         Returns:
-            Tuple of (is_valid, owner, repo_name)
+            Tuple of (is_valid, platform, owner, repo_name)
         """
-        pattern = r'https://github\.com/([^/]+)/([^/]+)'
-        match = re.match(pattern, url)
+        # GitHub pattern
+        github_pattern = r'https://github\.com/([^/]+)/([^/]+)'
+        gitlab_pattern = r'https://gitlab\.com/([^/]+)/([^/]+)'
+        bitbucket_pattern = r'https://bitbucket\.org/([^/]+)/([^/]+)'
         
-        if match:
-            owner, repo_name = match.groups()
-            # Remove .git suffix if present
-            repo_name = repo_name.replace('.git', '')
-            return True, owner, repo_name
-        return False, "", ""
+        for pattern, platform in [(github_pattern, 'github'), (gitlab_pattern, 'gitlab'), (bitbucket_pattern, 'bitbucket')]:
+            match = re.match(pattern, url)
+            if match:
+                owner, repo_name = match.groups()
+                # Remove .git suffix if present
+                repo_name = repo_name.replace('.git', '')
+                return True, platform, owner, repo_name
+        
+        return False, "", "", ""
     
-    def fetch_repo(self, url: str) -> Optional[Repository]:
+    def fetch_repo(self, url: str) -> Optional[Union[Repository, dict]]:
         """
-        Fetch repository information from GitHub.
+        Fetch repository information from GitHub, GitLab, or Bitbucket.
         
         Args:
-            url: GitHub repository URL
+            url: Repository URL
             
         Returns:
-            Repository object or None if failed
+            Repository object (GitHub) or dict (GitLab/Bitbucket) or None if failed
         """
-        is_valid, owner, repo_name = self.validate_github_url(url)
+        is_valid, platform, owner, repo_name = self.validate_repo_url(url)
         
         if not is_valid:
-            raise ValueError("Invalid GitHub repository URL")
+            raise ValueError("Invalid repository URL")
         
         try:
-            repo = self.github.get_repo(f"{owner}/{repo_name}")
-            return repo
-        except GithubException as e:
-            if e.status == 404:
+            if platform == 'github':
+                repo = self.github.get_repo(f"{owner}/{repo_name}")
+                return repo
+            elif platform == 'gitlab':
+                if not self.gitlab_token:
+                    raise ValueError("GitLab token not provided")
+                # Lazy import and initialization
+                import gitlab
+                if not self._gitlab_client:
+                    self._gitlab_client = gitlab.Gitlab('https://gitlab.com', private_token=self.gitlab_token)
+                project = self._gitlab_client.projects.get(f"{owner}/{repo_name}")
+                return {
+                    'platform': 'gitlab',
+                    'project': project,
+                    'owner': owner,
+                    'repo_name': repo_name
+                }
+            elif platform == 'bitbucket':
+                if not self.bitbucket_token:
+                    raise ValueError("Bitbucket token not provided")
+                # Lazy import and initialization
+                import bitbucket
+                if not self._bitbucket_client:
+                    self._bitbucket_client = bitbucket.Bitbucket(self.bitbucket_token)
+                repo_data = self._bitbucket_client.repositories.get(f"{owner}/{repo_name}")
+                return {
+                    'platform': 'bitbucket',
+                    'repo_data': repo_data,
+                    'owner': owner,
+                    'repo_name': repo_name
+                }
+            else:
+                raise ValueError(f"Unsupported platform: {platform}")
+        except Exception as e:
+            if "404" in str(e) or "not found" in str(e).lower():
                 raise ValueError("Repository not found or is private")
-            elif e.status == 403:
-                raise ValueError("Rate limit exceeded. Please provide a GitHub token.")
+            elif "403" in str(e) or "rate limit" in str(e).lower():
+                raise ValueError(f"Rate limit exceeded for {platform}. Please provide a token.")
             else:
                 raise ValueError(f"Error fetching repository: {str(e)}")
     
-    def get_repo_contents(self, repo: Repository, path: str = "") -> List[Dict]:
+    def get_repo_contents(self, repo: Union[Repository, dict], path: str = "") -> List[Dict]:
         """
-        Recursively fetch repository contents.
+        Recursively fetch repository contents from GitHub, GitLab, or Bitbucket.
         
         Args:
-            repo: GitHub repository object
+            repo: GitHub repository object or dict with platform info
             path: Path within the repository
             
         Returns:
@@ -88,25 +137,84 @@ class RepoFetcher:
         contents = []
         
         try:
-            items = repo.get_contents(path)
-            
-            for item in items:
-                if item.type == "dir":
-                    # Recursively get contents of subdirectories
-                    sub_contents = self.get_repo_contents(repo, item.path)
-                    contents.extend(sub_contents)
-                else:
-                    # Only include code files and documentation
-                    if self._is_relevant_file(item.name):
-                        contents.append({
-                            'name': item.name,
-                            'path': item.path,
-                            'type': item.type,
-                            'size': item.size,
-                            'content': item.decoded_content.decode('utf-8') if item.size < 1024 * 1024 else None
-                        })
-        except GithubException:
-            pass  # Skip if directory doesn't exist or is empty
+            if isinstance(repo, Repository):
+                # GitHub repository
+                items = repo.get_contents(path)
+                
+                for item in items:
+                    if item.type == "dir":
+                        # Recursively get contents of subdirectories
+                        sub_contents = self.get_repo_contents(repo, item.path)
+                        contents.extend(sub_contents)
+                    else:
+                        # Only include code files and documentation
+                        if self._is_relevant_file(item.name):
+                            contents.append({
+                                'name': item.name,
+                                'path': item.path,
+                                'type': item.type,
+                                'size': item.size,
+                                'content': item.decoded_content.decode('utf-8') if item.size < 1024 * 1024 else None
+                            })
+            elif isinstance(repo, dict):
+                # GitLab or Bitbucket repository
+                platform = repo.get('platform')
+                
+                if platform == 'gitlab':
+                    project = repo.get('project')
+                    # Use GitLab API to get repository tree
+                    tree = project.repository_tree(recursive=True, path=path)
+                    
+                    for item in tree:
+                        if item['type'] == 'blob':
+                            if self._is_relevant_file(item['name']):
+                                # Get file content
+                                file_content = None
+                                if item['size'] < 1024 * 1024:  # Only fetch small files
+                                    file = project.files.get(file_path=item['path'], ref='master')
+                                    file_content = file.decode()
+                                
+                                contents.append({
+                                    'name': item['name'],
+                                    'path': item['path'],
+                                    'type': 'file',
+                                    'size': item['size'],
+                                    'content': file_content
+                                })
+                elif platform == 'bitbucket':
+                    # Use Bitbucket API to get repository contents
+                    repo_data = repo.get('repo_data')
+                    owner = repo.get('owner')
+                    repo_name = repo.get('repo_name')
+                    
+                    # Construct API URL for contents
+                    api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{path}"
+                    
+                    response = requests.get(api_url)
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        if 'values' in data:  # Directory listing
+                            for item in data['values']:
+                                if item['type'] == 'commit_file':
+                                    if self._is_relevant_file(item['path'].split('/')[-1]):
+                                        # Get file content
+                                        file_content = None
+                                        if item.get('size', 0) < 1024 * 1024:
+                                            file_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{item['path']}"
+                                            file_response = requests.get(file_url)
+                                            if file_response.status_code == 200:
+                                                file_content = file_response.text
+                                        
+                                        contents.append({
+                                            'name': item['path'].split('/')[-1],
+                                            'path': item['path'],
+                                            'type': 'file',
+                                            'size': item.get('size', 0),
+                                            'content': file_content
+                                        })
+        except Exception as e:
+            logger.warning(f"Error fetching repository contents: {e}")
         
         return contents
     
