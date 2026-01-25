@@ -54,6 +54,10 @@ class LanguageType(Enum):
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     JAVA = "java"
+    RUST = "rust"
+    GO = "go"
+    CPP = "cpp"
+    TYPESCRIPT = "typescript"
     UNKNOWN = "unknown"
 
 
@@ -113,19 +117,23 @@ class EnhancedCodeAnalyzer:
             logger.warning("Tree-sitter not available. Using fallback parsing.")
             self.language_parsers = {}
             return
-             
+              
         try:
             # Initialize parsers for different languages
             self.language_parsers = {
                 LanguageType.PYTHON: Parser(),
                 LanguageType.JAVASCRIPT: Parser(),
-                LanguageType.JAVA: Parser()
+                LanguageType.JAVA: Parser(),
+                LanguageType.RUST: Parser(),
+                LanguageType.GO: Parser(),
+                LanguageType.CPP: Parser(),
+                LanguageType.TYPESCRIPT: Parser()
             }
-            
+             
             # Set language libraries (these would need to be installed)
             # For now, we'll use fallback parsing
-            logger.info("Tree-sitter parsers initialized")
-            
+            logger.info("Tree-sitter parsers initialized for multiple languages")
+             
         except Exception as e:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
             self.language_parsers = {}
