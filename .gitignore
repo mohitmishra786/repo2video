@@ -202,14 +202,27 @@ real_repo_output/
 # Log files
 *.log
 repotovideo.log
+logs/
 
 # Output files
 walkthrough.mp4
 output/
+media/
+test_output/
 
 # Cache directories
 .cache/
 cache/
+
+# Test and temporary output directories
+groq_test_output/
+strict_test_output/
+
+# Files to be deleted
+to_be_deleted/
+
+# macOS system files
+.DS_Store
 
 # Configuration files with sensitive data
 config.ini
@@ -263,3 +276,4 @@ local_settings.py
 .env.development
 .env.test
 .env.production 
+whatever.md

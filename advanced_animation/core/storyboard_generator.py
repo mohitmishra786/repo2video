@@ -25,22 +25,83 @@ from .data_structures import (
 logger = logging.getLogger(__name__)
 
 class StoryboardGenerator:
-    """AI-powered storyboard generator using GPT-4."""
+    """AI-powered storyboard generator using Groq as primary and OpenAI as fallback."""
     
     def __init__(self, openai_api_key: Optional[str] = None):
         """
         Initialize the storyboard generator.
         
         Args:
-            openai_api_key: OpenAI API key for GPT-4 access
+            openai_api_key: OpenAI API key for GPT-4 access (fallback)
         """
+        # Initialize Groq client as primary
+        self.groq_client = None
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        
+        if self.groq_api_key:
+            try:
+                from groq import Groq
+                self.groq_client = Groq(api_key=self.groq_api_key)
+                logger.info("Groq API initialized as primary AI provider")
+            except ImportError:
+                logger.warning("Groq library not available. Falling back to OpenAI.")
+                self.groq_client = None
+        else:
+            logger.warning("Groq API key not provided. Falling back to OpenAI.")
+            self.groq_client = None
+        
+        # Initialize OpenAI client as fallback
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if self.openai_api_key:
             openai.api_key = self.openai_api_key
-            self.client = openai.OpenAI(api_key=self.openai_api_key)
+            self.openai_client = openai.OpenAI(api_key=self.openai_api_key)
         else:
             logger.warning("OpenAI API key not provided. Using fallback storyboard generation.")
-            self.client = None
+            self.openai_client = None
+        
+        # Determine which client to use
+        self.client = self.groq_client if self.groq_client else self.openai_client
+        
+        # Visual metaphor library
+        self.visual_metaphors = {
+            "array": {
+                "type": "rectangle_array",
+                "default_color": "#ff7f0e",
+                "animation": "sequential_highlight"
+            },
+            "tree": {
+                "type": "hierarchical_tree",
+                "default_color": "#2ca02c",
+                "animation": "depth_first_traversal"
+            },
+            "graph": {
+                "type": "network_graph",
+                "default_color": "#d62728",
+                "animation": "path_highlight"
+            },
+            "stack": {
+                "type": "vertical_stack",
+                "default_color": "#9467bd",
+                "animation": "push_pop_animation"
+            },
+            "queue": {
+                "type": "horizontal_queue",
+                "default_color": "#8c564b",
+                "animation": "enqueue_dequeue"
+            },
+            "sorting": {
+                "type": "array_with_pivot",
+                "default_color": "#e377c2",
+                "animation": "partition_animation"
+            },
+            "searching": {
+                "type": "array_with_pointer",
+                "default_color": "#7f7f7f",
+                "animation": "binary_search_animation"
+            }
+        }
+        
+        logger.info("StoryboardGenerator initialized with visual metaphor library")
             
         # Visual metaphor library
         self.visual_metaphors = {
@@ -101,51 +162,90 @@ class StoryboardGenerator:
             return self._generate_fallback_storyboard(code_analysis)
     
     def _generate_ai_storyboard(self, code_analysis: Dict[str, Any]) -> Storyboard:
-        """Generate storyboard using GPT-4 AI with retry logic."""
+        """Generate storyboard using Groq (primary) or OpenAI (fallback) with retry logic."""
         import time
         import random
         
         max_retries = 3
         base_delay = 2  # Base delay in seconds
         
+        # Determine which client and models to use
+        clients_and_models = []
+        
+        # Add Groq models first (primary)
+        if self.groq_client:
+            clients_and_models.extend([
+                (self.groq_client, "llama-3.3-70b-versatile", "Groq"),  # Best free model
+                (self.groq_client, "llama-3.3-8b-instant", "Groq"),     # Faster alternative
+                (self.groq_client, "mixtral-8x7b-32768", "Groq")         # Another good option
+            ])
+        
+        # Add OpenAI models as fallback
+        if self.openai_client:
+            clients_and_models.extend([
+                (self.openai_client, "gpt-4o-mini", "OpenAI"),      # More reliable
+                (self.openai_client, "gpt-4-turbo", "OpenAI"),      # Alternative
+                (self.openai_client, "gpt-3.5-turbo", "OpenAI")      # Most reliable fallback
+            ])
+        
+        if not clients_and_models:
+            logger.error("No AI clients available. Falling back to rule-based generation.")
+            return self._generate_fallback_storyboard(code_analysis)
+        
         for attempt in range(max_retries):
             try:
-                logger.info(f"Using GPT-4 for AI-powered storyboard generation (attempt {attempt + 1}/{max_retries})")
+                client, model, provider = clients_and_models[attempt % len(clients_and_models)]
+                logger.info(f"Using {provider} {model} for AI-powered storyboard generation (attempt {attempt + 1}/{max_retries})")
                 
                 # Prepare the prompt
                 prompt = self._create_storyboard_prompt(code_analysis)
                 
-                # Call GPT-4 with different models as fallback
-                models_to_try = [
-                    "gpt-4o-mini",  # More reliable, less rate limited
-                    "gpt-4-turbo",  # Alternative
-                    "gpt-3.5-turbo"  # Most reliable fallback
-                ]
-                
-                model = models_to_try[attempt % len(models_to_try)]
-                
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7,
-                    max_tokens=4000
-                )
+                # Call the appropriate API
+                if provider == "Groq":
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.7,
+                        max_tokens=4000
+                    )
+                    response_content = response.choices[0].message.content
+                else:  # OpenAI
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.7,
+                        max_tokens=4000
+                    )
+                    response_content = response.choices[0].message.content
                 
                 # Parse the response
-                storyboard_data = json.loads(response.choices[0].message.content)
-                logger.info(f"Successfully generated AI storyboard with {len(storyboard_data.get('scenes', []))} scenes using {model}")
-                
-                return self._parse_storyboard_response(storyboard_data, code_analysis)
+                if response_content:
+                    storyboard_data = json.loads(response_content)
+                    logger.info(f"Successfully generated AI storyboard with {len(storyboard_data.get('scenes', []))} scenes using {provider} {model}")
+                    
+                    return self._parse_storyboard_response(storyboard_data, code_analysis)
+                else:
+                    raise ValueError("Empty response from AI provider")
                 
             except Exception as e:
                 error_msg = str(e)
