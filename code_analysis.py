@@ -46,6 +46,15 @@ try:
 except ImportError:
     DEPTREE_AVAILABLE = False
 
+# Vector embedding imports for semantic search
+try:
+    import faiss
+    import numpy as np
+    from sentence_transformers import SentenceTransformer
+    VECTOR_EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    VECTOR_EMBEDDINGS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,6 +120,11 @@ class EnhancedCodeAnalyzer:
         self.language_parsers = {}
         self._setup_tree_sitter()
         
+        # Initialize vector embeddings for semantic search
+        self.vector_db = None
+        self.embedding_model = None
+        self._setup_vector_embeddings()
+        
     def _setup_tree_sitter(self):
         """Setup Tree-sitter parsers for different languages."""
         if not tree_sitter or not Parser:
@@ -138,10 +152,34 @@ class EnhancedCodeAnalyzer:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
             self.language_parsers = {}
     
-    def analyze_project(self) -> Dict[str, Any]:
+    def _setup_vector_embeddings(self):
+        """Setup vector embeddings for semantic code search."""
+        if not VECTOR_EMBEDDINGS_AVAILABLE:
+            logger.warning("Vector embeddings not available. Semantic search disabled.")
+            return
+        
+        try:
+            # Load sentence transformer model
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            # Initialize FAISS index
+            dimension = 384  # Dimension for all-MiniLM-L6-v2
+            self.vector_db = faiss.IndexFlatL2(dimension)
+            
+            logger.info("Vector embeddings initialized for semantic search")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup vector embeddings: {e}")
+            self.vector_db = None
+            self.embedding_model = None
+    
+    def analyze_project(self, chunk_size: Optional[int] = None) -> Dict[str, Any]:
         """
         Perform comprehensive analysis of the entire project.
         
+        Args:
+            chunk_size: Optional chunk size for large repositories
+            
         Returns:
             Dictionary containing complete project analysis
         """
@@ -159,6 +197,11 @@ class EnhancedCodeAnalyzer:
         # Get all code files
         code_files = self._get_code_files()
         logger.info(f"Found {len(code_files)} code files to analyze")
+        
+        # Apply chunking for large repositories
+        if chunk_size and len(code_files) > chunk_size:
+            logger.info(f"Processing large repository in chunks of {chunk_size} files")
+            return self._analyze_in_chunks(code_files, chunk_size)
         
         successful_analyses = 0
         failed_analyses = 0
