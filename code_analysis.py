@@ -20,6 +20,7 @@ from pathlib import Path
 import re
 from dataclasses import dataclass
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Tree-sitter imports
 try:
@@ -154,20 +155,17 @@ class EnhancedCodeAnalyzer:
         successful_analyses = 0
         failed_analyses = 0
         
-        # Analyze each file
-        for i, file_path in enumerate(code_files):
-            logger.info(f"Analyzing file {i+1}/{len(code_files)}: {file_path}")
+        # Use parallel processing for file analysis
+        def analyze_file_wrapper(file_path):
             try:
+                logger.info(f"Analyzing file: {file_path}")
                 file_analysis = self.analyze_file(file_path)
-                analysis['files'][str(file_path)] = file_analysis
-                analysis['error_patterns'].extend(file_analysis.get('error_patterns', []))
-                successful_analyses += 1
                 logger.info(f"✅ Successfully analyzed: {file_path}")
+                return file_path, file_analysis, None
             except Exception as e:
-                failed_analyses += 1
                 logger.error(f"❌ Error analyzing {file_path}: {e}")
                 # Add a basic file entry even if analysis fails
-                analysis['files'][str(file_path)] = {
+                error_entry = {
                     'language': 'unknown',
                     'size': 0,
                     'lines': 0,
@@ -178,6 +176,30 @@ class EnhancedCodeAnalyzer:
                     'complexity': 0,
                     'analysis_error': str(e)
                 }
+                return file_path, error_entry, e
+        
+        # Determine optimal number of workers (max 8 to avoid overwhelming system)
+        num_workers = min(8, max(1, os.cpu_count() or 4))
+        logger.info(f"Using parallel processing with {num_workers} workers")
+        
+        # Analyze files in parallel
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            # Submit all file analysis tasks
+            future_to_file = {
+                executor.submit(analyze_file_wrapper, file_path): file_path
+                for file_path in code_files
+            }
+            
+            # Process results as they complete
+            for future in as_completed(future_to_file):
+                file_path, file_analysis, error = future.result()
+                analysis['files'][str(file_path)] = file_analysis
+                analysis['error_patterns'].extend(file_analysis.get('error_patterns', []))
+                
+                if error:
+                    failed_analyses += 1
+                else:
+                    successful_analyses += 1
         
         logger.info(f"Analysis complete: {successful_analyses} successful, {failed_analyses} failed")
         
