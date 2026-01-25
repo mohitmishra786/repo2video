@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..core.data_structures import Storyboard
 from pathlib import Path
 from dotenv import load_dotenv
+from googletrans import Translator
 
 # Load environment variables
 load_dotenv()
@@ -47,8 +48,45 @@ class AudioGenerator:
             "style": 0.0,
             "use_speaker_boost": True
         }
+        
+        # Initialize translator for multi-language support
+        self.translator = Translator()
+        self.supported_languages = {
+            'en': 'English',
+            'es': 'Spanish', 
+            'fr': 'French',
+            'de': 'German',
+            'it': 'Italian',
+            'pt': 'Portuguese',
+            'ru': 'Russian',
+            'zh': 'Chinese',
+            'ja': 'Japanese',
+            'ar': 'Arabic'
+        }
     
-    def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None) -> bool:
+    def _translate_text(self, text: str, target_language: str) -> str:
+        """
+        Translate text to the target language.
+        
+        Args:
+            text: Text to translate
+            target_language: Target language code
+            
+        Returns:
+            Translated text
+        """
+        if target_language == 'en':
+            return text  # No translation needed for English
+        
+        try:
+            translation = self.translator.translate(text, dest=target_language)
+            logger.info(f"Translated text from English to {target_language}")
+            return translation.text
+        except Exception as e:
+            logger.error(f"Translation failed, using original text: {e}")
+            return text
+    
+    def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None, language: str = 'en') -> bool:
         """
         Generate audio from text using ElevenLabs API.
         
@@ -56,6 +94,7 @@ class AudioGenerator:
             text: Text to convert to speech
             output_path: Path where the audio file should be saved
             voice_id: Voice ID to use. If not provided, uses default voice.
+            language: Language code for the text (e.g., 'en', 'es', 'fr')
             
         Returns:
             bool: True if successful, False otherwise
@@ -67,6 +106,9 @@ class AudioGenerator:
         if not text.strip():
             logger.warning("Empty text provided for audio generation")
             return False
+        
+        # Translate text if needed
+        translated_text = self._translate_text(text, language)
         
         try:
             voice_id = voice_id or self.default_voice_id
@@ -81,12 +123,12 @@ class AudioGenerator:
             }
             
             data = {
-                "text": text,
+                "text": translated_text,
                 "model_id": "eleven_multilingual_v2",  # Updated to newer model
                 "voice_settings": self.default_settings
             }
             
-            logger.info(f"Generating audio for text: {text[:50]}...")
+            logger.info(f"Generating audio for text: {translated_text[:50]}... (Language: {language})")
             
             # Make the API request
             response = requests.post(url, json=data, headers=headers)
@@ -104,12 +146,12 @@ class AudioGenerator:
             else:
                 logger.error(f"Failed to generate audio: {response.status_code} - {response.text}")
                 return False
-                
+            
         except Exception as e:
             logger.error(f"Error generating audio: {e}")
             return False
     
-    def generate_scene_audio(self, scene_narration: str, scene_id: int, output_dir: str) -> Optional[str]:
+    def generate_scene_audio(self, scene_narration: str, scene_id: int, output_dir: str, language: str = 'en') -> Optional[str]:
         """
         Generate audio for a specific scene.
         
@@ -117,6 +159,7 @@ class AudioGenerator:
             scene_narration: The narration text for the scene
             scene_id: The scene ID
             output_dir: Directory to save the audio file
+            language: Language code for the narration
             
         Returns:
             Optional[str]: Path to the generated audio file, or None if failed
@@ -125,20 +168,21 @@ class AudioGenerator:
             logger.warning("Audio generation not available for scene")
             return None
         
-        output_path = os.path.join(output_dir, f"scene_{scene_id}_narration.mp3")
+        output_path = os.path.join(output_dir, f"scene_{scene_id}_narration_{language}.mp3")
         
-        if self.generate_audio(scene_narration, output_path):
+        if self.generate_audio(scene_narration, output_path, language=language):
             return output_path
         else:
             return None
     
-    def generate_storyboard_audio(self, storyboard: 'Storyboard', output_dir: str) -> Dict[int, str]:
+    def generate_storyboard_audio(self, storyboard: 'Storyboard', output_dir: str, language: str = 'en') -> Dict[int, str]:
         """
         Generate audio for all scenes in a storyboard.
         
         Args:
             storyboard: The storyboard containing scenes
             output_dir: Directory to save audio files
+            language: Language code for all narrations
             
         Returns:
             Dict[int, str]: Mapping of scene ID to audio file path
@@ -153,12 +197,13 @@ class AudioGenerator:
             audio_path = self.generate_scene_audio(
                 scene.narration, 
                 scene.id, 
-                output_dir
+                output_dir,
+                language
             )
             if audio_path:
                 audio_files[scene.id] = audio_path
         
-        logger.info(f"Generated audio for {len(audio_files)} scenes")
+        logger.info(f"Generated audio for {len(audio_files)} scenes in {language}")
         return audio_files
     
     def get_available_voices(self) -> list:
@@ -185,10 +230,19 @@ class AudioGenerator:
             else:
                 logger.error(f"Failed to get voices: {response.status_code}")
                 return []
-                
+            
         except Exception as e:
             logger.error(f"Error getting voices: {e}")
             return []
+    
+    def get_supported_languages(self) -> Dict[str, str]:
+        """
+        Get supported languages for translation and audio generation.
+        
+        Returns:
+            Dict[str, str]: Mapping of language codes to language names
+        """
+        return self.supported_languages
     
     def test_connection(self) -> bool:
         """
