@@ -263,16 +263,20 @@ class EnhancedCodeAnalyzer:
                         logger.debug(f"Found function: {node.name}")
                         func_info = self._extract_function_info(node, content)
                         functions.append(func_info)
-                        
+                         
                     elif isinstance(node, ast.ClassDef):
                         logger.debug(f"Found class: {node.name}")
                         class_info = self._extract_class_info(node, content)
                         classes.append(class_info)
-                        
+                         
                     elif isinstance(node, (ast.Import, ast.ImportFrom)):
                         logger.debug(f"Found import statement")
                         import_info = self._extract_import_info(node)
                         imports.append(import_info)
+                except AttributeError as e:
+                    logger.debug(f"Skipping AST node with missing attribute in {file_path}: {e}")
+                    # Continue processing other nodes instead of failing completely
+                    continue
                 except Exception as e:
                     logger.error(f"Error processing AST node in {file_path}: {e}")
                     # Continue processing other nodes instead of failing completely
@@ -356,15 +360,20 @@ class EnhancedCodeAnalyzer:
         calls = []
         for child in ast.walk(node):
             if isinstance(child, ast.Call):
-                if isinstance(child.func, ast.Name):
-                    calls.append(child.func.id)
-                elif isinstance(child.func, ast.Attribute):
-                    # Safely handle attribute access
-                    if isinstance(child.func.value, ast.Name):
-                        calls.append(f"{child.func.value.id}.{child.func.attr}")
-                    else:
-                        # Handle other cases (e.g., method chaining)
-                        calls.append(f"?.{child.func.attr}")
+                try:
+                    if isinstance(child.func, ast.Name):
+                        calls.append(child.func.id)
+                    elif isinstance(child.func, ast.Attribute):
+                        # Safely handle attribute access
+                        if isinstance(child.func.value, ast.Name):
+                            calls.append(f"{child.func.value.id}.{child.func.attr}")
+                        else:
+                            # Handle other cases (e.g., method chaining)
+                            calls.append(f"?.{child.func.attr}")
+                    # Add more cases as needed for other function call types
+                except AttributeError as e:
+                    logger.debug(f"Skipping complex Call node (missing attribute): {e}")
+                    continue
         
         # Calculate complexity (simplified)
         complexity = 1

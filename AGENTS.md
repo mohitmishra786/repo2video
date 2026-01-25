@@ -319,4 +319,25 @@ class ExampleClass:
 - [ ] Maintains security best practices
 - [ ] Is properly documented
 
+## 🔍 Current Status
+
+### Video Rendering
+- ⚠️ MoviePy imports fixed, ready for testing
+- ⚠️ Manim Rendering: Still needs proper ManimGL setup
+
+## 🧪 Testing Instructions
+
+To verify the current state of the project:
+
+```bash
+# Test MoviePy video rendering
+python -c "from moviepy.editor import VideoClip; print('MoviePy imports working')"
+
+# Test ManimGL rendering (may fail if not properly configured)
+python -c "from manim import Scene; print('ManimGL imports working')"
+
+# Run full test suite
+python test_real_repository.py https://github.com/TheAlgorithms/Python
+```
+
 This guide ensures consistency and quality across the RepoToVideo codebase for all contributors, including agentic coding tools.

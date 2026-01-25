@@ -196,53 +196,28 @@ class StoryboardGenerator:
             try:
                 client, model, provider = clients_and_models[attempt % len(clients_and_models)]
                 logger.info(f"Using {provider} {model} for AI-powered storyboard generation (attempt {attempt + 1}/{max_retries})")
-                
-                # Prepare the prompt
-                prompt = self._create_storyboard_prompt(code_analysis)
-                
-                # Call the appropriate API
+
+                 # Check if we need to chunk the request for Groq to avoid token limits
                 if provider == "Groq":
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        response_format={"type": "json_object"},
-                        temperature=0.7,
-                        max_tokens=4000
-                    )
-                    response_content = response.choices[0].message.content
-                else:  # OpenAI
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        response_format={"type": "json_object"},
-                        temperature=0.7,
-                        max_tokens=4000
-                    )
-                    response_content = response.choices[0].message.content
-                
+                    # Estimate token size and chunk if too large
+                    prompt_size = self._estimate_prompt_size(code_analysis)
+                    logger.info(f"Estimated prompt size: {prompt_size} tokens")
+                    if prompt_size > 60000:  # Further reduced threshold to force chunking for this repo
+                        logger.info(f"Prompt too large ({prompt_size} tokens), using chunked approach")
+                        storyboard_data = self._generate_chunked_storyboard(client, model, code_analysis)
+                    else:
+                        # Prepare the full prompt
+                        logger.info(f"Prompt size acceptable ({prompt_size} tokens), using full approach")
+                        prompt = self._create_storyboard_prompt(code_analysis)
+                        storyboard_data = self._call_ai_api(client, model, provider, prompt)
+                else:
+                    # For OpenAI, use the full prompt (higher token limits)
+                    prompt = self._create_storyboard_prompt(code_analysis)
+                    storyboard_data = self._call_ai_api(client, model, provider, prompt)
+
                 # Parse the response
-                if response_content:
-                    storyboard_data = json.loads(response_content)
+                if storyboard_data:
                     logger.info(f"Successfully generated AI storyboard with {len(storyboard_data.get('scenes', []))} scenes using {provider} {model}")
-                    
                     return self._parse_storyboard_response(storyboard_data, code_analysis)
                 else:
                     raise ValueError("Empty response from AI provider")
@@ -269,6 +244,185 @@ class StoryboardGenerator:
         
         logger.info("Falling back to rule-based storyboard generation")
         return self._generate_fallback_storyboard(code_analysis)
+    
+    def _call_ai_api(self, client, model: str, provider: str, prompt: str) -> Optional[Dict[str, Any]]:
+        """Call the AI API and return the response."""
+        try:
+            if provider == "Groq":
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.7,
+                    max_tokens=4000
+                )
+                response_content = response.choices[0].message.content
+            else:  # OpenAI
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are an expert in creating 3Blue1Brown-style educational animations. Convert code analysis into visual storyboards with clear visual metaphors and smooth animations."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.7,
+                    max_tokens=4000
+                )
+                response_content = response.choices[0].message.content
+            
+            # Parse the response
+            if response_content:
+                return json.loads(response_content)
+            else:
+                logger.error("Empty response from AI provider")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error calling AI API: {e}")
+            raise
+    
+    def _generate_chunked_storyboard(self, client, model: str, code_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate storyboard by processing files in chunks to avoid token limits."""
+        try:
+            files = list(code_analysis.get('files', {}).items())
+            chunk_size = 2  # Further reduced chunk size to ensure we stay well under token limits
+            all_scenes = []
+            
+            # Process files in chunks
+            for i in range(0, len(files), chunk_size):
+                chunk = files[i:i + chunk_size]
+                chunk_data = {
+                    'files': {k: v for k, v in chunk},
+                    'algorithms': code_analysis.get('algorithms', []),
+                    'data_structures': code_analysis.get('data_structures', []),
+                    'complexity_analysis': code_analysis.get('complexity_analysis', {})
+                }
+                
+                # Create prompt for this chunk
+                chunk_prompt = self._create_chunked_storyboard_prompt(chunk_data, i//chunk_size + 1, len(files))
+                
+                # Call AI API for this chunk
+                chunk_response = self._call_ai_api(client, model, "Groq", chunk_prompt)
+                
+                if chunk_response:
+                    all_scenes.extend(chunk_response.get('scenes', []))
+                else:
+                    logger.warning(f"Failed to get response for chunk {i//chunk_size + 1}")
+            
+            # Combine all scenes into final storyboard
+            final_storyboard = {
+                'title': 'Comprehensive Code Repository Analysis',
+                'description': 'Detailed educational animation with code execution flow, AST analysis, and algorithm visualization',
+                'scenes': all_scenes
+            }
+            
+            return final_storyboard
+            
+        except Exception as e:
+            logger.error(f"Error generating chunked storyboard: {e}")
+            raise
+    
+    def _create_chunked_storyboard_prompt(self, chunk_data: Dict[str, Any], chunk_num: int, total_chunks: int) -> str:
+        """Create a prompt for a chunk of files."""
+        files = chunk_data.get('files', [])
+        algorithms = chunk_data.get('algorithms', [])
+        data_structures = chunk_data.get('data_structures', [])
+        complexity = chunk_data.get('complexity_analysis', {})
+        
+        # Create a summary of the chunk
+        file_summaries = []
+        for file_path, file_data in files.items():
+            summary = {
+                'path': str(file_path),
+                'language': file_data.get('language', 'unknown'),
+                'lines': file_data.get('lines', 0),
+                'functions': len(file_data.get('functions', [])),
+                'classes': len(file_data.get('classes', [])),
+                'complexity': file_data.get('complexity', 0)
+            }
+            file_summaries.append(summary)
+        
+        prompt = f"""
+        Create scenes for a 3Blue1Brown-style storyboard for this code analysis (chunk {chunk_num}/{total_chunks}):
+        
+        Files in this chunk: {len(files)} files
+        Algorithms: {algorithms}
+        Data Structures: {data_structures}
+        Complexity: {complexity}
+        
+        File Summaries:
+        {json.dumps(file_summaries, indent=2)}
+        
+        Output JSON format with scenes for this chunk:
+        {{
+          "scenes": [
+            {{
+              "id": 1,
+              "concept": "Analysis of chunk {chunk_num}",
+              "visual_elements": [
+                {{
+                  "type": "text",
+                  "properties": {{"text": "Analyzing code files"}},
+                  "position": {{"x": 0, "y": 0, "z": 0}},
+                  "color": "#ffffff",
+                  "size": 1.0
+                }}
+              ],
+              "animation_sequence": [],
+              "narration": "Analyzing the next set of files...",
+              "duration": 5.0,
+              "camera_movement": {{"phi": 75.0, "theta": -45.0, "distance": 5.0}}
+            }}
+          ]
+        }}
+        """
+        
+        return prompt
+    
+    def _estimate_prompt_size(self, code_analysis: Dict[str, Any]) -> int:
+        """Estimate the token size of the prompt."""
+        try:
+            # More realistic estimate: the actual prompt includes much more than just file analysis
+            # It includes scene descriptions, visual elements, animation sequences, etc.
+            files = code_analysis.get('files', {})
+            total_chars = 0
+            
+            # Count characters in file summaries
+            for file_data in files.values():
+                total_chars += len(str(file_data.get('functions', [])))
+                total_chars += len(str(file_data.get('classes', [])))
+                total_chars += len(str(file_data.get('imports', [])))
+                # Add more realistic overhead for file structure, complexity, etc.
+                total_chars += 5000  # Increased per-file overhead
+            
+            # Add base prompt size - this is much larger than initially estimated
+            total_chars += 20000  # Much larger base prompt
+            
+            # Account for the full storyboard structure that gets generated
+            # Each scene adds significant overhead
+            num_files = len(files)
+            total_chars += num_files * 10000  # Per-file scene generation overhead
+            
+            # More realistic token estimate
+            return total_chars // 3  # Convert to token estimate
+        except Exception as e:
+            logger.error(f"Error estimating prompt size: {e}")
+            return 65000  # Further reduced threshold to trigger chunking more aggressively
     
     def _create_storyboard_prompt(self, code_analysis: Dict[str, Any]) -> str:
         """Create the prompt for GPT-4 storyboard generation."""
