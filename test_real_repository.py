@@ -45,10 +45,21 @@ def analyze_repository(repo_path: str):
     analyzer = EnhancedCodeAnalyzer(repo_path)
     return analyzer.analyze_project()
 
-def analyze_github_repo(repo_url: str, output_dir: str = "real_repo_output"):
+def analyze_github_repo(repo_url: str, output_dir: str = "real_repo_output", theme: str = "light", 
+                       length: str = "medium", focus: str = "all", language: str = "en", 
+                       quality: str = "1080p", mobile: bool = False):
     """Analyze a GitHub repository and create animations."""
-    print(f"🎬 Testing Real Repository: {repo_url}")
+    print(f"Testing Real Repository: {repo_url}")
     print("=" * 60)
+    
+    # Log customization options
+    print(f"Customization options:")
+    print(f"  Theme: {theme}")
+    print(f"  Length: {length}")
+    print(f"  Focus: {focus}")
+    print(f"  Language: {language}")
+    print(f"  Quality: {quality}")
+    print(f"  Mobile optimized: {mobile}")
     
     try:
         # Initialize the advanced animation system
@@ -147,39 +158,42 @@ def main():
     parser.add_argument("repo_url", help="GitHub repository URL (e.g., https://github.com/user/repo)")
     parser.add_argument("--output", "-o", default="real_repo_output", 
                        help="Output directory (default: real_repo_output)")
+    parser.add_argument("--theme", choices=["light", "dark", "system"], default="light", help="Theme for animations")
+    parser.add_argument("--length", choices=["short", "medium", "long"], default="medium", help="Video length")
+    parser.add_argument("--focus", choices=["all", "tests", "core", "docs"], default="all", help="Focus area")
+    parser.add_argument("--language", default="en", help="Language for narration")
+    parser.add_argument("--quality", choices=["720p", "1080p", "4k"], default="1080p", help="Video quality")
+    parser.add_argument("--mobile", action="store_true", help="Optimize for mobile devices")
     
     args = parser.parse_args()
     
     # Validate repository URL
     if not args.repo_url.startswith("https://github.com/"):
-        print("❌ Please provide a valid GitHub repository URL")
+        print("Please provide a valid GitHub repository URL")
         print("   Example: https://github.com/user/repo")
         return
     
     # Process the repository
-    success = analyze_github_repo(args.repo_url, args.output)
+    success = analyze_github_repo(
+        args.repo_url, 
+        args.output,
+        theme=args.theme,
+        length=args.length,
+        focus=args.focus,
+        language=args.language,
+        quality=args.quality,
+        mobile=args.mobile
+    )
     
     if success:
-        print("\n🎊 Repository animation test completed successfully!")
-        print("\n💡 Next steps:")
-        print("   1. Check the generated videos in the output directory")
-        print("   2. Try different repositories with various algorithms")
-        print("   3. Customize the animation parameters")
+        print("\nRepository animation test completed successfully!")
+        print("\nNext steps:")
+        print("- Check the output directory for generated videos")
+        print("- Review the storyboard JSON file")
+        print("- Try different repositories to see various animation styles")
     else:
-        print("\n⚠️ Some issues encountered. Check the logs above.")
+        print("\nRepository animation test failed")
+        print("Please check the error messages above")
 
 if __name__ == "__main__":
-    # If no arguments provided, show usage
-    if len(sys.argv) == 1:
-        print("🎬 Real Repository Animation Test")
-        print("=" * 50)
-        print("Usage: python test_real_repository.py <github_repo_url>")
-        print("\nExamples:")
-        print("  python test_real_repository.py https://github.com/algorithm-visualizer/algorithm-visualizer")
-        print("  python test_real_repository.py https://github.com/TheAlgorithms/Python")
-        print("  python test_real_repository.py https://github.com/trekhleb/javascript-algorithms")
-        print("\nOr run with specific output directory:")
-        print("  python test_real_repository.py https://github.com/user/repo --output my_animations")
-        print("\n💡 Choose repositories with interesting algorithms for best results!")
-    else:
-        main() 
+    main()
