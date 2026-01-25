@@ -7,8 +7,16 @@ and algorithms used in 3Blue1Brown-style animations.
 
 import logging
 import numpy as np
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from ..core.data_structures import VisualElement
+
+# 3D animation imports
+try:
+    from manimlib import ThreeDScene, ThreeDAxes, Sphere, Arrow3D, Text3D
+    MANIM_3D_AVAILABLE = True
+except ImportError:
+    MANIM_3D_AVAILABLE = False
+
 
 # ManimGL imports (3Blue1Brown's original version)
 try:

@@ -1,13 +1,8 @@
 """
 Enhanced Code Analysis Module
-
-This module provides advanced code analysis capabilities including:
-- Call graph generation using pycallgraph2
-- Dependency detection via pipdeptree
-- Error pattern identification using AST inspection
-- Multi-language support (Python, JavaScript, Java)
 """
 
+from __future__ import annotations
 import ast
 import subprocess
 import tempfile
@@ -46,6 +41,19 @@ try:
 except ImportError:
     DEPTREE_AVAILABLE = False
 
+# Vector embedding imports for semantic search
+try:
+    import faiss
+    import numpy as np
+    from sentence_transformers import SentenceTransformer
+    VECTOR_EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    VECTOR_EMBEDDINGS_AVAILABLE = False
+
+# Vector embedding configuration
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBEDDING_DIMENSION = 384
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,6 +62,10 @@ class LanguageType(Enum):
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     JAVA = "java"
+    RUST = "rust"
+    GO = "go"
+    CPP = "cpp"
+    TYPESCRIPT = "typescript"
     UNKNOWN = "unknown"
 
 
@@ -107,33 +119,216 @@ class EnhancedCodeAnalyzer:
         self.language_parsers = {}
         self._setup_tree_sitter()
         
+        # Initialize vector embeddings for semantic search
+        self.vector_db = None
+        self.embedding_model = None
+        self._setup_vector_embeddings()
+        
     def _setup_tree_sitter(self):
         """Setup Tree-sitter parsers for different languages."""
         if not tree_sitter or not Parser:
             logger.warning("Tree-sitter not available. Using fallback parsing.")
             self.language_parsers = {}
             return
-             
+              
         try:
             # Initialize parsers for different languages
             self.language_parsers = {
                 LanguageType.PYTHON: Parser(),
                 LanguageType.JAVASCRIPT: Parser(),
-                LanguageType.JAVA: Parser()
+                LanguageType.JAVA: Parser(),
+                LanguageType.RUST: Parser(),
+                LanguageType.GO: Parser(),
+                LanguageType.CPP: Parser(),
+                LanguageType.TYPESCRIPT: Parser()
             }
-            
+             
             # Set language libraries (these would need to be installed)
             # For now, we'll use fallback parsing
-            logger.info("Tree-sitter parsers initialized")
-            
+            logger.info("Tree-sitter parsers initialized for multiple languages")
+             
         except Exception as e:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
             self.language_parsers = {}
     
-    def analyze_project(self) -> Dict[str, Any]:
+    def _setup_vector_embeddings(self) -> None:
+        """Setup vector embeddings for semantic code search."""
+        if not VECTOR_EMBEDDINGS_AVAILABLE:
+            logger.warning("Vector embeddings not available. Semantic search disabled.")
+            return
+        
+        try:
+            # Load sentence transformer model
+            self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+            
+            # Initialize FAISS index
+            self.vector_db = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
+            
+            # Map for storing document content (id -> content)
+            self.doc_map = {}
+            self.next_id = 0
+            
+            logger.info("Vector embeddings initialized for semantic search")
+            
+        except Exception:
+            logger.exception("Failed to setup vector embeddings")
+            self.vector_db = None
+            self.embedding_model = None
+            self.doc_map = {}
+            
+    def _embed_text(self, text: str) -> np.ndarray:
+        """
+        Embed text using the configured model.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            Numpy array containing the embedding
+        """
+        if not self.embedding_model:
+            return np.zeros((1, EMBEDDING_DIMENSION), dtype='float32')
+            
+        return self.embedding_model.encode([text]).astype('float32')
+        
+    def add_document(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Add a document to the vector database.
+        
+        Args:
+            content: Document content (code or text)
+            metadata: Optional metadata
+            
+        Returns:
+            Document ID
+        """
+        if not self.vector_db or not self.embedding_model:
+            return -1
+            
+        # Create embedding
+        embedding = self._embed_text(content)
+        
+        # Add to index
+        self.vector_db.add(embedding)
+        
+        # Store content mapping
+        doc_id = self.next_id
+        self.doc_map[doc_id] = {
+            'content': content,
+            'metadata': metadata or {}
+        }
+        self.next_id += 1
+        
+        return doc_id
+        
+    def semantic_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Perform semantic search.
+        
+        Args:
+            query: Search query
+            k: Number of results to return
+            
+        Returns:
+            List of matching documents with scores
+        """
+        if not self.vector_db or not self.embedding_model:
+            return []
+            
+        # Embed query
+        query_embedding = self._embed_text(query)
+        
+        # Search
+        distances, indices = self.vector_db.search(query_embedding, k)
+        
+        results = []
+        for i, idx in enumerate(indices[0]):
+            if idx != -1 and idx in self.doc_map:
+                doc = self.doc_map[idx]
+                results.append({
+                    'content': doc['content'],
+                    'metadata': doc['metadata'],
+                    'score': float(distances[0][i])
+                })
+                
+        return results
+    
+    def _analyze_in_chunks(self, code_files: List[Path], chunk_size: int) -> Dict[str, Any]:
+        """
+        Analyze code files in chunks to avoid memory issues.
+        
+        Args:
+            code_files: List of files to analyze
+            chunk_size: Number of files per chunk
+            
+        Returns:
+            Combined analysis result
+        """
+        # Initial seeding of non-file fields
+        combined_analysis = {
+            'project_info': self._get_project_info(),
+            'files': {},
+            'dependencies': self._analyze_dependencies(),
+            'call_graph': self._generate_call_graph(),
+            'error_patterns': [],
+            'metrics': {}
+        }
+        
+        # Split into chunks
+        chunks = [code_files[i:i + chunk_size] for i in range(0, len(code_files), chunk_size)]
+        
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Processing chunk {i+1}/{len(chunks)} ({len(chunk)} files)")
+            
+            # Temporarily mock the file getter to return just this chunk
+            original_get_code_files = self._get_code_files
+            self._get_code_files = lambda chunk=chunk: chunk
+            
+            try:
+                # Run analysis for this chunk (recursive call with no chunking)
+                chunk_result = self.analyze_project(chunk_size=None)
+                
+                # Merge results
+                combined_analysis['files'].update(chunk_result.get('files', {}))
+                combined_analysis['error_patterns'].extend(chunk_result.get('error_patterns', []))
+                
+                # Merge dependencies consistently
+                chunk_deps = chunk_result.get('dependencies', [])
+                if isinstance(chunk_deps, list) and isinstance(combined_analysis['dependencies'], list):
+                    combined_analysis['dependencies'].extend(chunk_deps)
+                elif isinstance(chunk_deps, dict) and isinstance(combined_analysis['dependencies'], dict):
+                    combined_analysis['dependencies'].update(chunk_deps)
+                
+                # Merge call graph
+                chunk_graph = chunk_result.get('call_graph')
+                if chunk_graph and isinstance(chunk_graph, dict):
+                    if not combined_analysis['call_graph'] or not isinstance(combined_analysis['call_graph'], dict):
+                        combined_analysis['call_graph'] = chunk_graph
+                    else:
+                        # Merge nodes and edges if they are lists
+                        if 'nodes' in combined_analysis['call_graph'] and 'nodes' in chunk_graph:
+                            combined_analysis['call_graph']['nodes'].extend(chunk_graph['nodes'])
+                        if 'edges' in combined_analysis['call_graph'] and 'edges' in chunk_graph:
+                            combined_analysis['call_graph']['edges'].extend(chunk_graph['edges'])
+                    
+            except Exception as e:
+                logger.error(f"Error analyzing chunk {i+1}: {e}", exc_info=True)
+            finally:
+                # Restore original method
+                self._get_code_files = original_get_code_files
+                
+        # Final aggregated metrics
+        combined_analysis['metrics'] = self._calculate_project_metrics(combined_analysis)
+        
+        return combined_analysis
+
+    def analyze_project(self, chunk_size: Optional[int] = None) -> Dict[str, Any]:
         """
         Perform comprehensive analysis of the entire project.
         
+        Args:
+            chunk_size: Optional chunk size for large repositories
+            
         Returns:
             Dictionary containing complete project analysis
         """
@@ -151,6 +346,13 @@ class EnhancedCodeAnalyzer:
         # Get all code files
         code_files = self._get_code_files()
         logger.info(f"Found {len(code_files)} code files to analyze")
+        
+        # Apply chunking for large repositories
+        if chunk_size is not None and chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer")
+        if chunk_size and len(code_files) > chunk_size:
+            logger.info(f"Processing large repository in chunks of {chunk_size} files")
+            return self._analyze_in_chunks(code_files, chunk_size)
         
         successful_analyses = 0
         failed_analyses = 0
@@ -795,16 +997,33 @@ class EnhancedCodeAnalyzer:
         
         if extension == '.py':
             return LanguageType.PYTHON
-        elif extension in ['.js', '.jsx', '.ts', '.tsx']:
+        elif extension in ['.js', '.jsx']:
             return LanguageType.JAVASCRIPT
+        elif extension in ['.ts', '.tsx']:
+            return LanguageType.TYPESCRIPT
         elif extension == '.java':
             return LanguageType.JAVA
+        elif extension == '.rs':
+            return LanguageType.RUST
+        elif extension == '.go':
+            return LanguageType.GO
+        elif extension in ['.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h']:
+            # Note: .h files are mapped to CPP by default, though they could be C headers
+            return LanguageType.CPP
         else:
             return LanguageType.UNKNOWN
     
     def _get_code_files(self) -> List[Path]:
         """Get all code files in the project."""
-        code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.java'}
+        code_extensions = {
+            '.py', 
+            '.js', '.jsx', 
+            '.ts', '.tsx', 
+            '.java',
+            '.rs',
+            '.go',
+            '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h'
+        }
         code_files = []
         
         # Directories to skip

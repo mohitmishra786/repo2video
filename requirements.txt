@@ -20,6 +20,9 @@ elevenlabs>=0.2.24
 networkx>=3.1
 python-dotenv>=1.0.0
 openai>=1.0.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-groq>=0.0.1
 
 # Advanced animation dependencies
 opencv-python>=4.8.0

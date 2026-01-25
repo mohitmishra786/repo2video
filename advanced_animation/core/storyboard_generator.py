@@ -24,6 +24,21 @@ from .data_structures import (
 
 logger = logging.getLogger(__name__)
 
+# Advanced AI integration imports
+try:
+    from langchain_openai import OpenAI
+    OPENAI_LLM_AVAILABLE = True
+except ImportError as exc:
+    logger.info("LangChain OpenAI not available: %s", exc)
+    OPENAI_LLM_AVAILABLE = False
+
+try:
+    from langchain_groq import ChatGroq as Groq
+    GROQ_LLM_AVAILABLE = True
+except ImportError as exc:
+    logger.info("LangChain Groq not available: %s", exc)
+    GROQ_LLM_AVAILABLE = False
+
 class StoryboardGenerator:
     """AI-powered storyboard generator using Groq as primary and OpenAI as fallback."""
     
@@ -62,47 +77,6 @@ class StoryboardGenerator:
         # Determine which client to use
         self.client = self.groq_client if self.groq_client else self.openai_client
         
-        # Visual metaphor library
-        self.visual_metaphors = {
-            "array": {
-                "type": "rectangle_array",
-                "default_color": "#ff7f0e",
-                "animation": "sequential_highlight"
-            },
-            "tree": {
-                "type": "hierarchical_tree",
-                "default_color": "#2ca02c",
-                "animation": "depth_first_traversal"
-            },
-            "graph": {
-                "type": "network_graph",
-                "default_color": "#d62728",
-                "animation": "path_highlight"
-            },
-            "stack": {
-                "type": "vertical_stack",
-                "default_color": "#9467bd",
-                "animation": "push_pop_animation"
-            },
-            "queue": {
-                "type": "horizontal_queue",
-                "default_color": "#8c564b",
-                "animation": "enqueue_dequeue"
-            },
-            "sorting": {
-                "type": "array_with_pivot",
-                "default_color": "#e377c2",
-                "animation": "partition_animation"
-            },
-            "searching": {
-                "type": "array_with_pointer",
-                "default_color": "#7f7f7f",
-                "animation": "binary_search_animation"
-            }
-        }
-        
-        logger.info("StoryboardGenerator initialized with visual metaphor library")
-            
         # Visual metaphor library
         self.visual_metaphors = {
             "array": {
