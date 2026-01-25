@@ -20,6 +20,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..core.data_structures import StoryboardScene, VisualElement, AnimationStep, CameraMovement
 from ..visualizations.visual_metaphors import VisualMetaphorLibrary
 
+# E2B imports for dynamic code execution
+try:
+    import e2b
+    E2B_AVAILABLE = True
+except ImportError:
+    E2B_AVAILABLE = False
+
 # ManimGL imports (3Blue1Brown's original version)
 try:
     from manimlib import *
@@ -400,91 +407,144 @@ class ManimSceneRenderer:
         return results
     
     def create_scene_file(self, storyboard_scene: StoryboardScene) -> Path:
-        """Create a temporary scene file for rendering."""
+        """
+        Create a Manim scene file from a storyboard scene.
+        
+        Args:
+            storyboard_scene: Scene to convert to Manim code
+            
+        Returns:
+            Path to the created scene file
+        """
+        scene_file = self.output_dir / f"scene_{storyboard_scene.id}.py"
+        
+        # Generate the scene code
+        scene_code = self.generate_scene_code(storyboard_scene)
+        
+        # Write to file
+        with open(scene_file, 'w') as f:
+            f.write(scene_code)
+        
+        return scene_file
+    
+    def execute_code_with_e2b(self, code: str, language: str = "python") -> Optional[str]:
+        """
+        Execute code using E2B sandbox environment.
+        
+        Args:
+            code: Code to execute
+            language: Programming language
+            
+        Returns:
+            Execution result or None if failed
+        """
+        if not self.enable_e2b or not self.e2b_client:
+            return None
+        
         try:
-            scene_content = self.generate_scene_code(storyboard_scene)
+            # Create a sandbox
+            sandbox = self.e2b_client.sandboxes.create(
+                template="python",
+                timeout_seconds=30
+            )
             
-            scene_file = self.output_dir / f"scene_{storyboard_scene.id}.py"
+            # Write code to a file in the sandbox
+            file_path = f"/tmp/code.{language}"
+            sandbox.files.write(file_path, code)
             
-            with open(scene_file, 'w') as f:
-                f.write(scene_content)
+            # Execute the code
+            if language == "python":
+                result = sandbox.processes.spawn(
+                    command=["python", file_path],
+                    timeout_seconds=20
+                )
+            elif language == "javascript":
+                result = sandbox.processes.spawn(
+                    command=["node", file_path],
+                    timeout_seconds=20
+                )
+            else:
+                return None
             
-            logger.info(f"Created scene file: {scene_file}")
-            return scene_file
+            # Get the output
+            output = result.stdout.read()
+            error = result.stderr.read()
+            
+            # Clean up
+            sandbox.close()
+            
+            if error:
+                return f"Error: {error}"
+            else:
+                return output
+                
+        except Exception as e:
+            logger.error(f"E2B execution failed: {e}")
+            return None
             
         except Exception as e:
             logger.error(f"Error creating scene file: {e}")
             raise
     
     def generate_scene_code(self, storyboard_scene: StoryboardScene) -> str:
-        """Generate Python code for the Manim scene with rich content."""
-        try:
-            # Create rich content based on scene concept
-            content_code = self._generate_rich_content(storyboard_scene)
+        """
+        Generate Manim scene code from a storyboard scene.
+        
+        Args:
+            storyboard_scene: Scene to convert to code
             
-            scene_code = f'''
-"""
-Auto-generated Manim scene for storyboard scene {storyboard_scene.id}
-"""
-
+        Returns:
+            Generated Manim scene code
+        """
+        # Import the necessary Manim classes
+        if MANIMGL_AVAILABLE:
+            from manimlib import *
+        elif MANIM_AVAILABLE:
+            from manim import *
+        
+        # Create a unique class name for this scene
+        scene_class_name = f"Scene{storyboard_scene.id}"
+        
+        # Check if this scene contains code execution
+        has_code_execution = any(
+            element.element_type == "code" and 
+            element.properties.get("execute", False)
+            for element in storyboard_scene.elements
+        )
+        
+        # Generate the scene code
+        scene_code = f"""
 from manim import *
-import numpy as np
 
-class Scene{storyboard_scene.id}(Scene):
+class {scene_class_name}(Scene):
     def construct(self):
-        # Set background
-        self.camera.background_color = BLACK
-        
-        # Create title with animation
-        title = Text(
-            "{storyboard_scene.concept}",
-            font_size=48,
-            color=WHITE
-        ).move_to(UP * 3)
-        
-        # Create subtitle
-        subtitle = Text(
-            "Generated by Advanced Animation System",
-            font_size=20,
-            color=GRAY
-        ).move_to(DOWN * 3.5)
-        
-        # Animate title
-        self.play(Write(title), run_time=2)
-        self.wait(0.5)
-        self.play(FadeIn(subtitle))
+        # Scene title
+        title = Text("{storyboard_scene.concept}", font_size=36)
+        title.to_edge(UP)
+        self.play(Write(title))
         self.wait(1)
         
-        # Add rich content based on scene type
-        {content_code}
-        
-        # Add narration text
-        narration_text = "{storyboard_scene.narration}"
-        if len(narration_text) > 100:
-            narration_text = narration_text[:100] + "..."
-        
-        narration = Text(
-            narration_text,
-            font_size=18,
-            color=BLUE
-        ).move_to(DOWN * 2.5)
-        
-        self.play(FadeIn(narration))
+        # Scene content
+        content = Text("{storyboard_scene.narration[:100]}...", font_size=24)
+        content.next_to(title, DOWN, buff=0.5)
+        self.play(Write(content))
         self.wait(2)
         
-        # Fade out everything
-        self.play(
-            FadeOut(title),
-            FadeOut(subtitle),
-            FadeOut(narration),
-            run_time=1
-        )
-
-if __name__ == "__main__":
-    # This will be executed by Manim
-    pass
-'''
-            return scene_code
+        # Visual elements
+        {self._generate_visual_elements_code(storyboard_scene)}
+        
+        # Code execution results (if any)
+        {self._generate_code_execution_results(storyboard_scene) if has_code_execution else ''}
+        
+        # Animation steps
+        {self._generate_animation_steps_code(storyboard_scene)}
+        
+        # Clean up
+        self.wait(1)
+        self.play(FadeOut(title), FadeOut(content))
+"""
+        
+        return scene_code
             
         except Exception as e:
             logger.error(f"Error generating scene code: {e}")
