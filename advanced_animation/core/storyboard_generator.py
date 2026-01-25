@@ -24,6 +24,27 @@ from .data_structures import (
 
 logger = logging.getLogger(__name__)
 
+# Advanced AI integration imports
+try:
+    from langchain.chains import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain.llms import OpenAI, Groq
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+
+try:
+    import anthropic
+    CLAUDE_AVAILABLE = True
+except ImportError:
+    CLAUDE_AVAILABLE = False
+
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 class StoryboardGenerator:
     """AI-powered storyboard generator using Groq as primary and OpenAI as fallback."""
     
