@@ -80,10 +80,6 @@ class AudioGenerator:
         # Background music settings
         self.background_music_enabled = False
         self.background_music_volume = -20  # dB
-        
-        # Background music settings
-        self.background_music_enabled = False
-        self.background_music_volume = -20  # dB
     
     def _translate_text(self, text: str, target_language: str) -> str:
         """
@@ -302,7 +298,7 @@ class AudioGenerator:
             background = background.low_pass_filter(1000)
             
             # Reduce volume
-            background = background - 25  # 25 dB quieter
+            background = background + self.background_music_volume
             
             # Mix narration and background
             mixed = narration.overlay(background)
@@ -314,7 +310,7 @@ class AudioGenerator:
         except Exception as e:
             logger.exception(f"Error adding background music: {e}")
     
-    def generate_subtitles(self, text: str, output_path: str) -> bool:
+    def generate_subtitles(self, text: str, output_path: str, language: str = 'en') -> bool:
         """
         Generate subtitle file for the given text.
         
@@ -359,12 +355,12 @@ class AudioGenerator:
             logger.info(f"Generated subtitles: {output_path}")
             return True
             
-         except (IOError, OSError, ValueError) as e:
-             logger.error(f"Error generating subtitles: {e}")
-             return False
-         except Exception as e:
-             logger.exception(f"Unexpected error generating subtitles: {e}")
-             return False
+        except (IOError, OSError, ValueError) as e:
+            logger.error(f"Error generating subtitles: {e}")
+            return False
+        except Exception as e:
+            logger.exception(f"Unexpected error generating subtitles: {e}")
+            return False
     
     def generate_scene_audio_with_subtitles(self, scene_narration: str, scene_id: int, output_dir: str, 
                                           language: str = 'en', voice_type: str = 'female') -> Dict[str, str]:

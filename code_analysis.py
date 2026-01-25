@@ -1,13 +1,8 @@
 """
 Enhanced Code Analysis Module
-
-This module provides advanced code analysis capabilities including:
-- Call graph generation using pycallgraph2
-- Dependency detection via pipdeptree
-- Error pattern identification using AST inspection
-- Multi-language support (Python, JavaScript, Java)
 """
 
+from __future__ import annotations
 import ast
 import subprocess
 import tempfile
@@ -156,7 +151,7 @@ class EnhancedCodeAnalyzer:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
             self.language_parsers = {}
     
-    def _setup_vector_embeddings(self):
+    def _setup_vector_embeddings(self) -> None:
         """Setup vector embeddings for semantic code search."""
         if not VECTOR_EMBEDDINGS_AVAILABLE:
             logger.warning("Vector embeddings not available. Semantic search disabled.")
@@ -175,7 +170,7 @@ class EnhancedCodeAnalyzer:
             
             logger.info("Vector embeddings initialized for semantic search")
             
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to setup vector embeddings")
             self.vector_db = None
             self.embedding_model = None
@@ -196,7 +191,7 @@ class EnhancedCodeAnalyzer:
             
         return self.embedding_model.encode([text])
         
-    def add_document(self, content: str, metadata: Dict[str, Any] = None) -> int:
+    def add_document(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> int:
         """
         Add a document to the vector database.
         
@@ -269,11 +264,12 @@ class EnhancedCodeAnalyzer:
         Returns:
             Combined analysis result
         """
+        # Initial seeding of non-file fields
         combined_analysis = {
             'project_info': self._get_project_info(),
             'files': {},
-            'dependencies': [],
-            'call_graph': None,
+            'dependencies': self._analyze_dependencies(),
+            'call_graph': self._generate_call_graph(),
             'error_patterns': [],
             'metrics': {}
         }
@@ -286,7 +282,7 @@ class EnhancedCodeAnalyzer:
             
             # Temporarily mock the file getter to return just this chunk
             original_get_code_files = self._get_code_files
-            self._get_code_files = lambda: chunk
+            self._get_code_files = lambda chunk=chunk: chunk
             
             try:
                 # Run analysis for this chunk (recursive call with no chunking)
@@ -296,12 +292,24 @@ class EnhancedCodeAnalyzer:
                 combined_analysis['files'].update(chunk_result.get('files', {}))
                 combined_analysis['error_patterns'].extend(chunk_result.get('error_patterns', []))
                 
-                # Merge dependencies if present
-                deps = chunk_result.get('dependencies', [])
-                if isinstance(deps, list):
-                    combined_analysis['dependencies'].extend(deps)
-                elif isinstance(deps, dict) and isinstance(combined_analysis['dependencies'], dict):
-                    combined_analysis['dependencies'].update(deps)
+                # Merge dependencies consistently
+                chunk_deps = chunk_result.get('dependencies', [])
+                if isinstance(chunk_deps, list) and isinstance(combined_analysis['dependencies'], list):
+                    combined_analysis['dependencies'].extend(chunk_deps)
+                elif isinstance(chunk_deps, dict) and isinstance(combined_analysis['dependencies'], dict):
+                    combined_analysis['dependencies'].update(chunk_deps)
+                
+                # Merge call graph
+                chunk_graph = chunk_result.get('call_graph')
+                if chunk_graph and isinstance(chunk_graph, dict):
+                    if not combined_analysis['call_graph'] or not isinstance(combined_analysis['call_graph'], dict):
+                        combined_analysis['call_graph'] = chunk_graph
+                    else:
+                        # Merge nodes and edges if they are lists
+                        if 'nodes' in combined_analysis['call_graph'] and 'nodes' in chunk_graph:
+                            combined_analysis['call_graph']['nodes'].extend(chunk_graph['nodes'])
+                        if 'edges' in combined_analysis['call_graph'] and 'edges' in chunk_graph:
+                            combined_analysis['call_graph']['edges'].extend(chunk_graph['edges'])
                     
             except Exception as e:
                 logger.error(f"Error analyzing chunk {i+1}: {e}", exc_info=True)
@@ -309,6 +317,9 @@ class EnhancedCodeAnalyzer:
                 # Restore original method
                 self._get_code_files = original_get_code_files
                 
+        # Final aggregated metrics
+        combined_analysis['metrics'] = self._calculate_project_metrics(combined_analysis)
+        
         return combined_analysis
 
     def analyze_project(self, chunk_size: Optional[int] = None) -> Dict[str, Any]:
@@ -337,6 +348,8 @@ class EnhancedCodeAnalyzer:
         logger.info(f"Found {len(code_files)} code files to analyze")
         
         # Apply chunking for large repositories
+        if chunk_size is not None and chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer")
         if chunk_size and len(code_files) > chunk_size:
             logger.info(f"Processing large repository in chunks of {chunk_size} files")
             return self._analyze_in_chunks(code_files, chunk_size)

@@ -327,6 +327,17 @@ class ManimSceneRenderer:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
+        # E2B sandbox configuration
+        self.enable_e2b = E2B_AVAILABLE and bool(os.getenv("E2B_API_KEY"))
+        self.e2b_client = None
+        if self.enable_e2b:
+            try:
+                # Initialize E2B client
+                self.e2b_client = e2b.Sandbox()
+            except Exception as e:
+                logger.warning(f"Failed to initialize E2B client: {e}")
+                self.enable_e2b = False
+        
         logger.info(f"ManimSceneRenderer initialized with output directory: {output_dir}")
     
     def render_scene(self, storyboard_scene: StoryboardScene) -> str:
@@ -501,9 +512,9 @@ class ManimSceneRenderer:
         
         # Check if this scene contains code execution
         has_code_execution = any(
-            element.element_type == "code" and 
+            element.type == "code" and 
             element.properties.get("execute", False)
-            for element in storyboard_scene.elements
+            for element in storyboard_scene.visual_elements
         )
         
         # Generate the scene code
@@ -538,25 +549,30 @@ class {scene_class_name}(Scene):
         self.play(FadeOut(title), FadeOut(content))
 """
         
-         return scene_code
+        return scene_code
     
     def _generate_visual_elements_code(self, storyboard_scene: StoryboardScene) -> str:
         """Generate code for visual elements."""
         code = ""
-        for element in storyboard_scene.visual_elements:
-            # Generate code for creating each visual element
-            # This is a simplified version, in a real implementation this would be more complex
-            # and potentially use the VisualMetaphorLibrary to generate specific code
+        for i, element in enumerate(storyboard_scene.visual_elements):
+            # Derive a safe variable name
+            var_name = element.properties.get("name")
+            if not var_name or not var_name.isidentifier():
+                var_name = f"{element.type.lower()}_{i}"
+            
+            # Get display text
+            text_content = element.properties.get("text") or element.properties.get("value") or ""
+            
             if element.type == "Text":
-                code += f'        {element.id} = Text("{element.content}")\n'
+                code += f'        {var_name} = Text("{text_content}")\n'
             elif element.type == "Code":
-                code += f'        {element.id} = Code("{element.content}")\n'
+                code += f'        {var_name} = Code(code="{text_content}", language="python")\n'
             else:
-                code += f'        {element.id} = Text("{element.content}")\n'
+                code += f'        {var_name} = Text("{text_content}")\n'
             
             # Position
             pos = element.position
-            code += f'        {element.id}.move_to([{pos.get("x", 0)}, {pos.get("y", 0)}, {pos.get("z", 0)}])\n'
+            code += f'        {var_name}.move_to([{pos.get("x", 0)}, {pos.get("y", 0)}, {pos.get("z", 0)}])\n'
             
         return code
 
@@ -569,13 +585,13 @@ class {scene_class_name}(Scene):
     def _generate_animation_steps_code(self, storyboard_scene: StoryboardScene) -> str:
         """Generate code for animation steps."""
         code = ""
-        for step in storyboard_scene.animation_steps:
+        for step in storyboard_scene.animation_sequence:
             if step.action == "FadeIn":
-                code += f'        self.play(FadeIn({step.target_element_id}), run_time={step.duration})\n'
+                code += f'        self.play(FadeIn({step.target}), run_time={step.duration})\n'
             elif step.action == "FadeOut":
-                code += f'        self.play(FadeOut({step.target_element_id}), run_time={step.duration})\n'
+                code += f'        self.play(FadeOut({step.target}), run_time={step.duration})\n'
             elif step.action == "Create":
-                code += f'        self.play(Create({step.target_element_id}), run_time={step.duration})\n'
+                code += f'        self.play(Create({step.target}), run_time={step.duration})\n'
             # Add more actions as needed
             
         return code
