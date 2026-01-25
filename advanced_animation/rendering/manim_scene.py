@@ -15,6 +15,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..core.data_structures import StoryboardScene, VisualElement, AnimationStep, CameraMovement
 from ..visualizations.visual_metaphors import VisualMetaphorLibrary
@@ -347,8 +348,56 @@ class ManimSceneRenderer:
             return output_file
             
         except Exception as e:
-            logger.error(f"Error rendering scene {storyboard_scene.id}: {e}")
+            logger.error(f"Error rendering scene {storyboard_scene.id}: {e}", exc_info=True)
             return self.create_fallback_video(storyboard_scene)
+    
+    def render_scenes_parallel(self, storyboard_scenes: List[StoryboardScene]) -> List[str]:
+        """
+        Render multiple scenes in parallel.
+        
+        Args:
+            storyboard_scenes: List of scenes to render
+            
+        Returns:
+            List of paths to rendered video files
+        """
+        if not MANIMGL_AVAILABLE and not MANIM_AVAILABLE:
+            logger.error("Neither ManimGL nor Manim available for rendering")
+            return [self.create_fallback_video(scene) for scene in storyboard_scenes]
+        
+        logger.info(f"Rendering {len(storyboard_scenes)} scenes in parallel")
+        
+        def render_scene_wrapper(scene):
+            try:
+                logger.info(f"Rendering scene {scene.id}: {scene.concept}")
+                scene_file = self.create_scene_file(scene)
+                output_file = self.render_with_manim(scene_file)
+                scene_file.unlink()
+                logger.info(f"Scene {scene.id} rendered successfully: {output_file}")
+                return output_file
+            except Exception as e:
+                logger.error(f"Error rendering scene {scene.id}: {e}", exc_info=True)
+                return self.create_fallback_video(scene)
+        
+        # Determine optimal number of workers (max 4 for rendering to avoid system overload)
+        num_workers = min(4, max(1, os.cpu_count() or 2))
+        logger.info(f"Using parallel rendering with {num_workers} workers")
+        
+        # Render scenes in parallel
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            # Submit all rendering tasks
+            future_to_scene = {
+                executor.submit(render_scene_wrapper, scene): scene
+                for scene in storyboard_scenes
+            }
+            
+            # Collect results as they complete
+            results = []
+            for future in as_completed(future_to_scene):
+                results.append(future.result())
+        
+        logger.info(f"Parallel rendering complete: {len(results)} scenes rendered")
+        return results
     
     def create_scene_file(self, storyboard_scene: StoryboardScene) -> Path:
         """Create a temporary scene file for rendering."""

@@ -69,10 +69,13 @@ def create_config_file():
 
 # GitHub Settings
 GITHUB_TOKEN=your_github_token_here
+GITLAB_TOKEN=your_gitlab_token_here
+BITBUCKET_TOKEN=your_bitbucket_token_here
 
 # Video Settings
 DEFAULT_VIDEO_QUALITY=1080p
 DEFAULT_LANGUAGE=en
+MOBILE_OPTIMIZED=False
 
 # Output Settings
 OUTPUT_DIR=./output
@@ -81,6 +84,14 @@ TEMP_DIR=./temp
 # Voice Settings
 TTS_LANGUAGE=en
 TTS_SPEED=normal
+
+# Premium Features (requires license)
+PREMIUM_ENABLED=False
+PREMIUM_LICENSE_KEY=
+
+# GitHub Actions Integration
+GITHUB_ACTIONS_ENABLED=False
+GITHUB_ACTIONS_WEBHOOK_URL=
 """
     
     config_path = Path("config.env")
@@ -142,7 +153,7 @@ def show_next_steps():
     print("1. Run the application:")
     print("   streamlit run app.py")
     print("\n2. Open your browser to: http://localhost:8501")
-    print("\n3. Enter a GitHub repository URL to get started")
+    print("\n3. Enter a repository URL to get started")
     print("\n4. Try an example repository:")
     print("   https://github.com/scikit-learn/scikit-learn")
     
@@ -152,12 +163,24 @@ def show_next_steps():
     
     print("\n🔧 Configuration:")
     print("- Edit config.env for custom settings")
-    print("- Add GitHub token for private repositories")
+    print("- Add tokens for private repositories")
+    print("- Enable premium features in config.env")
     
     print("\n💡 Tips:")
     print("- Start with small repositories for faster processing")
     print("- Use 720p quality for faster video generation")
     print("- Ensure stable internet connection for TTS services")
+    
+    print("\n💰 Premium Features:")
+    print("- HD video rendering (1080p/4K)")
+    print("- Advanced AI narration voices")
+    print("- Priority processing")
+    print("- Contact us for enterprise licensing")
+    
+    print("\n🤖 GitHub Actions:")
+    print("- Set GITHUB_ACTIONS_ENABLED=True in config.env")
+    print("- Add GITHUB_ACTIONS_WEBHOOK_URL for auto-video on push")
+    print("- See .github/workflows/ for example workflows")
 
 
 def main():
