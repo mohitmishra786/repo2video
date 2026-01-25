@@ -20,6 +20,16 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Optional imports for advanced audio features
+try:
+    import pysrt
+    import pydub
+    from pydub import AudioSegment
+    from pydub.generators import WhiteNoise
+    PYSRT_AVAILABLE = True
+except ImportError:
+    PYSRT_AVAILABLE = False
+
 class AudioGenerator:
     """Handles text-to-speech generation using ElevenLabs API."""
     
@@ -63,6 +73,19 @@ class AudioGenerator:
             'ja': 'Japanese',
             'ar': 'Arabic'
         }
+        
+        # Multi-voice support
+        self.voice_options = {
+            'male': 'ErXwobaYiN019PkySvjV',  # Adam voice
+            'female': '21m00Tcm4TlvDq8ikWAM',  # Rachel voice
+            'child': 'EXAVITQu4vr4xnSDxMaL',  # Child voice
+            'elderly': 'MF3mGyEYCl7XYWbV9V6O',  # Elderly voice
+            'robot': 'TxGEqnHWrfWFTfGW9XjX'  # Robot voice
+        }
+        
+        # Background music settings
+        self.background_music_enabled = False
+        self.background_music_volume = -20  # dB
     
     def _translate_text(self, text: str, target_language: str) -> str:
         """
@@ -86,7 +109,8 @@ class AudioGenerator:
             logger.error(f"Translation failed, using original text: {e}")
             return text
     
-    def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None, language: str = 'en') -> bool:
+    def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None, language: str = 'en', 
+                      voice_type: str = 'female', add_background_music: bool = False) -> bool:
         """
         Generate audio from text using ElevenLabs API.
         
@@ -95,6 +119,8 @@ class AudioGenerator:
             output_path: Path where the audio file should be saved
             voice_id: Voice ID to use. If not provided, uses default voice.
             language: Language code for the text (e.g., 'en', 'es', 'fr')
+            voice_type: Type of voice (male, female, child, elderly, robot)
+            add_background_music: Whether to add background music
             
         Returns:
             bool: True if successful, False otherwise
@@ -111,7 +137,13 @@ class AudioGenerator:
         translated_text = self._translate_text(text, language)
         
         try:
-            voice_id = voice_id or self.default_voice_id
+            # Use voice type if specified
+            if voice_type in self.voice_options:
+                voice_id = self.voice_options[voice_type]
+            elif voice_id:
+                voice_id = voice_id
+            else:
+                voice_id = self.default_voice_id
             
             # Prepare the request
             url = f"{self.base_url}/text-to-speech/{voice_id}"
@@ -128,7 +160,7 @@ class AudioGenerator:
                 "voice_settings": self.default_settings
             }
             
-            logger.info(f"Generating audio for text: {translated_text[:50]}... (Language: {language})")
+            logger.info(f"Generating audio for text: {translated_text[:50]}... (Language: {language}, Voice: {voice_type})")
             
             # Make the API request
             response = requests.post(url, json=data, headers=headers)
@@ -142,6 +174,11 @@ class AudioGenerator:
                     f.write(response.content)
                 
                 logger.info(f"Audio generated successfully: {output_path}")
+                
+                # Add background music if requested
+                if add_background_music and PYSRT_AVAILABLE:
+                    self._add_background_music(output_path)
+                
                 return True
             else:
                 logger.error(f"Failed to generate audio: {response.status_code} - {response.text}")
@@ -243,6 +280,132 @@ class AudioGenerator:
             Dict[str, str]: Mapping of language codes to language names
         """
         return self.supported_languages
+    
+    def _add_background_music(self, audio_path: str):
+        """
+        Add background music to audio file.
+        
+        Args:
+            audio_path: Path to the audio file
+        """
+        if not PYSRT_AVAILABLE:
+            logger.warning("pydub not available for background music")
+            return
+        
+        try:
+            # Load the narration audio
+            narration = AudioSegment.from_mp3(audio_path)
+            
+            # Generate or load background music
+            # For demo purposes, we'll generate a simple ambient sound
+            # In production, you would use royalty-free music tracks
+            duration = len(narration)
+            background = WhiteNoise().to_audio_segment(duration=duration)
+            
+            # Apply low pass filter to make it less intrusive
+            background = background.low_pass_filter(1000)
+            
+            # Reduce volume
+            background = background - 25  # 25 dB quieter
+            
+            # Mix narration and background
+            mixed = narration.overlay(background)
+            
+            # Save the result
+            mixed.export(audio_path, format="mp3")
+            logger.info(f"Added background music to: {audio_path}")
+            
+        except Exception as e:
+            logger.error(f"Error adding background music: {e}")
+    
+    def generate_subtitles(self, text: str, output_path: str, language: str = 'en') -> bool:
+        """
+        Generate subtitle file for the given text.
+        
+        Args:
+            text: Text to generate subtitles for
+            output_path: Path to save the subtitle file
+            language: Language code
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not PYSRT_AVAILABLE:
+            logger.warning("pysrt not available for subtitle generation")
+            return False
+        
+        try:
+            # Create a simple subtitle file
+            # In a real implementation, this would be more sophisticated
+            # with proper timing based on speech analysis
+            
+            subs = pysrt.SubRipFile()
+            
+            # Split text into sentences for subtitles
+            sentences = text.split('.')
+            
+            for i, sentence in enumerate(sentences):
+                if sentence.strip():
+                    # Add subtitle with timing (simplified)
+                    start_time = i * 3000  # 3 seconds per subtitle
+                    end_time = start_time + 3000
+                    
+                    sub = pysrt.SubRipItem(
+                        index=i+1,
+                        start=pysrt.SubRipTime(milliseconds=start_time),
+                        end=pysrt.SubRipTime(milliseconds=end_time),
+                        text=sentence.strip() + '.'
+                    )
+                    subs.append(sub)
+            
+            # Save the subtitle file
+            subs.save(output_path, encoding='utf-8')
+            logger.info(f"Generated subtitles: {output_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error generating subtitles: {e}")
+            return False
+    
+    def generate_scene_audio_with_subtitles(self, scene_narration: str, scene_id: int, output_dir: str, 
+                                          language: str = 'en', voice_type: str = 'female') -> Dict[str, str]:
+        """
+        Generate audio and subtitles for a scene.
+        
+        Args:
+            scene_narration: The narration text for the scene
+            scene_id: The scene ID
+            output_dir: Directory to save the audio and subtitle files
+            language: Language code for the narration
+            voice_type: Type of voice to use
+            
+        Returns:
+            Dict[str, str]: Dictionary with 'audio_path' and 'subtitle_path'
+        """
+        if not self.available:
+            logger.warning("Audio generation not available for scene")
+            return {'audio_path': '', 'subtitle_path': ''}
+        
+        # Generate audio
+        audio_path = os.path.join(output_dir, f"scene_{scene_id}_narration_{language}.mp3")
+        audio_success = self.generate_audio(
+            scene_narration, 
+            audio_path,
+            voice_type=voice_type,
+            language=language
+        )
+        
+        # Generate subtitles
+        subtitle_path = os.path.join(output_dir, f"scene_{scene_id}_subtitles_{language}.srt")
+        subtitle_success = self.generate_subtitles(scene_narration, subtitle_path, language)
+        
+        result = {
+            'audio_path': audio_path if audio_success else '',
+            'subtitle_path': subtitle_path if subtitle_success else ''
+        }
+        
+        logger.info(f"Generated audio and subtitles for scene {scene_id}")
+        return result
     
     def test_connection(self) -> bool:
         """
