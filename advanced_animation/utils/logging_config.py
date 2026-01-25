@@ -112,15 +112,18 @@ class LoggingManager:
             'OPENAI_API_KEY',
             'ELEVENLABS_API_KEY',
             'E2B_API_KEY',
-            'PYTHONPATH'
+            'PYTHONPATH',
+            'GITHUB_TOKEN',
+            'GITLAB_TOKEN',
+            'BITBUCKET_TOKEN'
         ]
         
         for var in env_vars:
             value = os.getenv(var)
             if value:
                 # Mask sensitive values
-                if 'API_KEY' in var:
-                    masked_value = value[:8] + '*' * (len(value) - 12) + value[-4:] if len(value) > 12 else '***'
+                if any(keyword in var for keyword in ['API_KEY', 'TOKEN', 'SECRET', 'PASSWORD']):
+                    masked_value = value[:4] + '*' * max(8, len(value) - 8) + value[-4:] if len(value) > 8 else '***'
                     logger.info(f"{var}: {masked_value}")
                 else:
                     logger.info(f"{var}: {value}")

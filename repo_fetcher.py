@@ -149,12 +149,18 @@ class RepoFetcher:
                     else:
                         # Only include code files and documentation
                         if self._is_relevant_file(item.name):
+                            # Sanitize sensitive content before storing
+                            file_content = None
+                            if item.size < 1024 * 1024:  # Only fetch small files
+                                content = item.decoded_content.decode('utf-8')
+                                file_content = self._sanitize_sensitive_content(content, item.name)
+                            
                             contents.append({
                                 'name': item.name,
                                 'path': item.path,
                                 'type': item.type,
                                 'size': item.size,
-                                'content': item.decoded_content.decode('utf-8') if item.size < 1024 * 1024 else None
+                                'content': file_content
                             })
             elif isinstance(repo, dict):
                 # GitLab or Bitbucket repository
@@ -172,7 +178,8 @@ class RepoFetcher:
                                 file_content = None
                                 if item['size'] < 1024 * 1024:  # Only fetch small files
                                     file = project.files.get(file_path=item['path'], ref='master')
-                                    file_content = file.decode()
+                                    content = file.decode()
+                                    file_content = self._sanitize_sensitive_content(content, item['name'])
                                 
                                 contents.append({
                                     'name': item['name'],
@@ -204,7 +211,8 @@ class RepoFetcher:
                                             file_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{item['path']}"
                                             file_response = requests.get(file_url)
                                             if file_response.status_code == 200:
-                                                file_content = file_response.text
+                                                content = file_response.text
+                                                file_content = self._sanitize_sensitive_content(content, item['path'].split('/')[-1])
                                         
                                         contents.append({
                                             'name': item['path'].split('/')[-1],
@@ -236,6 +244,37 @@ class RepoFetcher:
         }
         
         return any(filename.endswith(ext) for ext in relevant_extensions) or filename in ['README', 'LICENSE']
+    
+    def _sanitize_sensitive_content(self, content: str, filename: str) -> str:
+        """
+        Sanitize sensitive content from file content.
+        
+        Args:
+            content: File content to sanitize
+            filename: Name of the file
+            
+        Returns:
+            Sanitized content
+        """
+        # Skip sanitization for certain file types
+        if filename in ['README.md', 'README.txt', 'LICENSE', 'CONTRIBUTING.md']:
+            return content
+        
+        # Patterns to detect sensitive information
+        sensitive_patterns = [
+            (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),  # Email addresses
+            (r'\b(?:password|passwd|pwd|secret|token|api[_-]?key)\b\s*[:=]\s*[\'\"]([^\'\"]+)[\'\"]', '\1: [SECRET_REDACTED]'),  # Password/secret assignments
+            (r'\b[A-Za-z0-9]{32,}\b', '[HASH_REDACTED]'),  # Long hex strings (likely hashes)
+            (r'\b(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?\b', '[URL_REDACTED]'),  # URLs
+            (r'\b(?:\d[\d-]{8,}\d)\b', '[PHONE_REDACTED]'),  # Phone numbers
+            (r'\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b', '[CREDIT_CARD_REDACTED]')  # Credit card numbers
+        ]
+        
+        sanitized_content = content
+        for pattern, replacement in sensitive_patterns:
+            sanitized_content = re.sub(pattern, replacement, sanitized_content, flags=re.IGNORECASE)
+        
+        return sanitized_content
     
     def analyze_repo(self, repo: Repository) -> Dict:
         """
