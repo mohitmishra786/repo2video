@@ -108,10 +108,11 @@ class EnhancedCodeAnalyzer:
         
     def _setup_tree_sitter(self):
         """Setup Tree-sitter parsers for different languages."""
-        if not tree_sitter:
+        if not tree_sitter or not Parser:
             logger.warning("Tree-sitter not available. Using fallback parsing.")
+            self.language_parsers = {}
             return
-            
+             
         try:
             # Initialize parsers for different languages
             self.language_parsers = {
@@ -126,6 +127,7 @@ class EnhancedCodeAnalyzer:
             
         except Exception as e:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
+            self.language_parsers = {}
     
     def analyze_project(self) -> Dict[str, Any]:
         """
@@ -261,16 +263,20 @@ class EnhancedCodeAnalyzer:
                         logger.debug(f"Found function: {node.name}")
                         func_info = self._extract_function_info(node, content)
                         functions.append(func_info)
-                        
+                         
                     elif isinstance(node, ast.ClassDef):
                         logger.debug(f"Found class: {node.name}")
                         class_info = self._extract_class_info(node, content)
                         classes.append(class_info)
-                        
+                         
                     elif isinstance(node, (ast.Import, ast.ImportFrom)):
                         logger.debug(f"Found import statement")
                         import_info = self._extract_import_info(node)
                         imports.append(import_info)
+                except AttributeError as e:
+                    logger.debug(f"Skipping AST node with missing attribute in {file_path}: {e}")
+                    # Continue processing other nodes instead of failing completely
+                    continue
                 except Exception as e:
                     logger.error(f"Error processing AST node in {file_path}: {e}")
                     # Continue processing other nodes instead of failing completely
@@ -297,10 +303,6 @@ class EnhancedCodeAnalyzer:
             logger.debug(f"Python analysis complete for {file_path}")
             return result
             
-        except Exception as e:
-            logger.error(f"AST parsing failed for {file_path}: {e}")
-            raise
-            
         except SyntaxError as e:
             logger.error(f"Syntax error in {file_path}: {e}")
             return {
@@ -316,6 +318,9 @@ class EnhancedCodeAnalyzer:
                     'code_snippet': content.splitlines()[e.lineno - 1] if e.lineno else ''
                 }]
             }
+        except Exception as e:
+            logger.error(f"AST parsing failed for {file_path}: {e}")
+            raise
     
     def _analyze_javascript_file(self, content: str, file_path: Path) -> Dict[str, Any]:
         """Analyze a JavaScript file."""
@@ -355,10 +360,20 @@ class EnhancedCodeAnalyzer:
         calls = []
         for child in ast.walk(node):
             if isinstance(child, ast.Call):
-                if isinstance(child.func, ast.Name):
-                    calls.append(child.func.id)
-                elif isinstance(child.func, ast.Attribute):
-                    calls.append(f"{child.func.value.id}.{child.func.attr}")
+                try:
+                    if isinstance(child.func, ast.Name):
+                        calls.append(child.func.id)
+                    elif isinstance(child.func, ast.Attribute):
+                        # Safely handle attribute access
+                        if isinstance(child.func.value, ast.Name):
+                            calls.append(f"{child.func.value.id}.{child.func.attr}")
+                        else:
+                            # Handle other cases (e.g., method chaining)
+                            calls.append(f"?.{child.func.attr}")
+                    # Add more cases as needed for other function call types
+                except AttributeError as e:
+                    logger.debug(f"Skipping complex Call node (missing attribute): {e}")
+                    continue
         
         # Calculate complexity (simplified)
         complexity = 1
@@ -424,7 +439,7 @@ class EnhancedCodeAnalyzer:
         try:
             for node in ast.walk(tree):
                 try:
-                    # Undefined variables
+                     # Undefined variables
                     if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
                         if hasattr(node, 'id') and hasattr(node, 'lineno'):
                             if not self._is_variable_defined(node.id, node, tree):
@@ -437,18 +452,58 @@ class EnhancedCodeAnalyzer:
                                     code_snippet=lines[node.lineno - 1] if node.lineno <= len(lines) else ''
                                 ))
                     
-                    # Type mismatches (basic detection)
+                    # Handle Call nodes safely
+                    elif isinstance(node, ast.Call):
+                        try:
+                            # Extract function name from Call nodes
+                            if isinstance(node.func, ast.Name):
+                                func_name = node.func.id
+                                # Check if function is defined
+                                if not self._is_function_defined(func_name, tree):
+                                    patterns.append(ErrorPattern(
+                                        type='undefined_function',
+                                        severity='error',
+                                        line=node.lineno,
+                                        message=f"Function '{func_name}' might be undefined",
+                                        suggestion=f"Define '{func_name}' before calling it",
+                                        code_snippet=lines[node.lineno - 1] if node.lineno <= len(lines) else ''
+                                    )                                    )
+                            elif isinstance(node.func, ast.Attribute):
+                                # Handle method calls like obj.method()
+                                if isinstance(node.func.value, ast.Name):
+                                    obj_name = node.func.value.id
+                                    method_name = node.func.attr
+                                    # Basic check for common issues
+                                    if obj_name == 'self' and not self._is_method_defined(method_name, node, tree):
+                                        patterns.append(ErrorPattern(
+                                            type='undefined_method',
+                                            severity='warning',
+                                            line=node.lineno,
+                                            message=f"Method '{method_name}' might be undefined",
+                                            suggestion=f"Define '{method_name}' in the class",
+                                            code_snippet=lines[node.lineno - 1] if node.lineno <= len(lines) else ''
+                                        ))
+                        except Exception as e:
+                            logger.debug(f"Skipping complex Call node analysis: {e}")
+                            continue
+                    
+                     # Type mismatches (basic detection)
                     if isinstance(node, ast.BinOp):
                         if isinstance(node.op, ast.Add):
-                            if (isinstance(node.left, ast.Str) and isinstance(node.right, ast.Num)) or \
-                               (isinstance(node.left, ast.Num) and isinstance(node.right, ast.Str)):
+                            # Check for string + number or number + string patterns
+                            left_is_str = isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)
+                            right_is_str = isinstance(node.right, ast.Constant) and isinstance(node.right.value, str)
+                            left_is_num = isinstance(node.left, ast.Constant) and isinstance(node.left.value, (int, float))
+                            right_is_num = isinstance(node.right, ast.Constant) and isinstance(node.right.value, (int, float))
+                            
+                            if (left_is_str and right_is_num) or (left_is_num and right_is_str):
                                 if hasattr(node, 'lineno'):
                                     patterns.append(ErrorPattern(
                                         type='type_mismatch',
                                         severity='warning',
                                         line=node.lineno,
                                         message="Potential type mismatch in addition",
-                                        suggestion="Convert types explicitly or use proper types",
+                                        suggestion="Ensure both operands are of the same type",
                                         code_snippet=lines[node.lineno - 1] if node.lineno <= len(lines) else ''
                                     ))
                 except Exception as e:
@@ -864,4 +919,47 @@ class EnhancedCodeAnalyzer:
             'message': error.message,
             'suggestion': error.suggestion,
             'code_snippet': error.code_snippet
-        } 
+        }
+    
+    def _is_function_defined(self, func_name: str, tree: ast.AST) -> bool:
+        """Check if a function is defined in the code."""
+        try:
+            # Check if it's a built-in function
+            import builtins
+            if hasattr(builtins, func_name):
+                return True
+            
+            # Check if it's defined in the current scope
+            for tree_node in ast.walk(tree):
+                if isinstance(tree_node, ast.FunctionDef) and tree_node.name == func_name:
+                    return True
+                elif isinstance(tree_node, ast.Import):
+                    for alias in tree_node.names:
+                        if alias.asname and alias.asname == func_name:
+                            return True
+                        elif alias.name.split('.')[-1] == func_name:
+                            return True
+                elif isinstance(tree_node, ast.ImportFrom):
+                    for alias in tree_node.names:
+                        if alias.name == func_name:
+                            return True
+                        elif alias.asname and alias.asname == func_name:
+                            return True
+            
+            return False
+        except Exception as e:
+            logger.debug(f"Error checking function definition: {e}")
+            return True  # Assume defined to avoid false positives
+    
+    def _is_method_defined(self, method_name: str, node: ast.Call, tree: ast.AST) -> bool:
+        """Check if a method is defined in the current class."""
+        try:
+            # Check if we're in a class method call
+            if isinstance(node.func, ast.Attribute):
+                # For now, assume methods are defined (simplified check)
+                # A full implementation would need to track class definitions
+                return True
+            return False
+        except Exception as e:
+            logger.debug(f"Error checking method definition: {e}")
+            return True  # Assume defined to avoid false positives 

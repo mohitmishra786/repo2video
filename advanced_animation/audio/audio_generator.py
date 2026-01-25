@@ -8,7 +8,9 @@ for creating voice narration for video scenes.
 import os
 import logging
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..core.data_structures import Storyboard
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -80,7 +82,7 @@ class AudioGenerator:
             
             data = {
                 "text": text,
-                "model_id": "eleven_monolingual_v1",
+                "model_id": "eleven_multilingual_v2",  # Updated to newer model
                 "voice_settings": self.default_settings
             }
             

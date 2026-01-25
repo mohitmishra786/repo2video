@@ -1227,8 +1227,9 @@ AnimationStep(
         try:
             logger.info("Creating fallback video for scene")
             
-            # Create a simple text-based video using MoviePy
-            from moviepy.editor import TextClip, ColorClip, CompositeVideoClip
+             # Create a simple text-based video using MoviePy
+            from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+            from moviepy.video.VideoClip import ColorClip, TextClip
             
             # Create background
             background = ColorClip(
@@ -1237,10 +1238,10 @@ AnimationStep(
                 duration=storyboard_scene.duration
             )
             
-            # Create text
+             # Create text
             text_clip = TextClip(
                 storyboard_scene.concept,
-                fontsize=48,
+                font_size=48,
                 color='white',
                 font='Arial-Bold'
             ).set_position('center').set_duration(storyboard_scene.duration)

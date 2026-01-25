@@ -2,7 +2,7 @@
 # Advanced Animation System Dependencies
 manimgl>=1.6.1
 manim>=0.18.0
-moviepy>=1.0.3
+moviepy>=2.0.0
 markdown>=3.5.1
 requests>=2.31.0
 Pillow>=10.0.0
