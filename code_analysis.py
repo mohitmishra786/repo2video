@@ -189,7 +189,7 @@ class EnhancedCodeAnalyzer:
         if not self.embedding_model:
             return np.zeros((1, EMBEDDING_DIMENSION), dtype='float32')
             
-        return self.embedding_model.encode([text])
+        return self.embedding_model.encode([text]).astype('float32')
         
     def add_document(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> int:
         """
@@ -1008,6 +1008,7 @@ class EnhancedCodeAnalyzer:
         elif extension == '.go':
             return LanguageType.GO
         elif extension in ['.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h']:
+            # Note: .h files are mapped to CPP by default, though they could be C headers
             return LanguageType.CPP
         else:
             return LanguageType.UNKNOWN

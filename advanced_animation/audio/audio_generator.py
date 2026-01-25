@@ -307,17 +307,16 @@ class AudioGenerator:
             mixed.export(audio_path, format="mp3")
             logger.info(f"Added background music to: {audio_path}")
             
-        except Exception as e:
-            logger.exception(f"Error adding background music: {e}")
+        except Exception:
+            logger.exception("Error adding background music")
     
-    def generate_subtitles(self, text: str, output_path: str, language: str = 'en') -> bool:
+    def generate_subtitles(self, text: str, output_path: str) -> bool:
         """
         Generate subtitle file for the given text.
         
         Args:
             text: Text to generate subtitles for
             output_path: Path to save the subtitle file
-            language: Language code
             
         Returns:
             bool: True if successful, False otherwise
@@ -358,8 +357,8 @@ class AudioGenerator:
         except (IOError, OSError, ValueError) as e:
             logger.error(f"Error generating subtitles: {e}")
             return False
-        except Exception as e:
-            logger.exception(f"Unexpected error generating subtitles: {e}")
+        except Exception:
+            logger.exception("Unexpected error generating subtitles")
             return False
     
     def generate_scene_audio_with_subtitles(self, scene_narration: str, scene_id: int, output_dir: str, 
@@ -392,7 +391,7 @@ class AudioGenerator:
         
         # Generate subtitles
         subtitle_path = os.path.join(output_dir, f"scene_{scene_id}_subtitles_{language}.srt")
-        subtitle_success = self.generate_subtitles(scene_narration, subtitle_path, language)
+        subtitle_success = self.generate_subtitles(scene_narration, subtitle_path)
         
         result = {
             'audio_path': audio_path if audio_success else '',

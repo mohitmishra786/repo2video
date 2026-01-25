@@ -26,27 +26,18 @@ logger = logging.getLogger(__name__)
 
 # Advanced AI integration imports
 try:
-    from langchain.chains import LLMChain
-    from langchain.prompts import PromptTemplate
-    from langchain.llms import OpenAI, Groq
-    LANGCHAIN_AVAILABLE = True
+    from langchain_openai import OpenAI
+    OPENAI_LLM_AVAILABLE = True
 except ImportError as exc:
-    logger.info("LangChain not available: %s", exc)
-    LANGCHAIN_AVAILABLE = False
+    logger.info("LangChain OpenAI not available: %s", exc)
+    OPENAI_LLM_AVAILABLE = False
 
 try:
-    import anthropic
-    CLAUDE_AVAILABLE = True
+    from langchain_groq import ChatGroq as Groq
+    GROQ_LLM_AVAILABLE = True
 except ImportError as exc:
-    logger.info("Anthropic SDK not available: %s", exc)
-    CLAUDE_AVAILABLE = False
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError as exc:
-    logger.info("Google Generative AI SDK not available: %s", exc)
-    GEMINI_AVAILABLE = False
+    logger.info("LangChain Groq not available: %s", exc)
+    GROQ_LLM_AVAILABLE = False
 
 class StoryboardGenerator:
     """AI-powered storyboard generator using Groq as primary and OpenAI as fallback."""
