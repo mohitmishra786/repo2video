@@ -38,13 +38,14 @@ class VideoMerger:
         
         logger.info(f"VideoMerger initialized with output directory: {output_dir}")
     
-    def merge_scenes(self, video_files: List[str], storyboard_path: Optional[str] = None) -> str:
+    def merge_scenes(self, video_files: List[str], storyboard_path: Optional[str] = None, mobile_optimized: bool = False) -> str:
         """
         Merge multiple scene videos into a single comprehensive video with audio.
         
         Args:
             video_files: List of paths to scene video files
             storyboard_path: Optional path to storyboard JSON for metadata
+            mobile_optimized: Whether to optimize for mobile devices
             
         Returns:
             Path to the merged video file
@@ -52,7 +53,7 @@ class VideoMerger:
         try:
             if not MOVIEPY_AVAILABLE:
                 logger.error("MoviePy not available for video merging")
-                return self.create_fallback_merge_with_audio(video_files)
+                return self.create_fallback_merge_with_audio(video_files, mobile_optimized)
             
             logger.info(f"Merging {len(video_files)} scene videos with audio")
             
@@ -88,7 +89,7 @@ class VideoMerger:
             
             if not clips:
                 logger.error("No valid video clips found")
-                return self.create_fallback_merge_with_audio(video_files)
+                return self.create_fallback_merge_with_audio(video_files, mobile_optimized)
             
             # Add scene transitions
             clips = self.create_scene_transitions(clips)
@@ -100,13 +101,27 @@ class VideoMerger:
             final_video = self.add_title_and_metadata(final_video, metadata)
             
             # Save the merged video
-            output_path = self.output_dir / "final_comprehensive_analysis.mp4"
-            final_video.write_videofile(
-                str(output_path),
-                fps=24,
-                codec='libx264',
-                audio_codec='aac'
-            )
+            output_path = self.output_dir / ("final_comprehensive_analysis_mobile.mp4" if mobile_optimized else "final_comprehensive_analysis.mp4")
+            
+            # Use mobile-optimized settings if requested
+            if mobile_optimized:
+                final_video.write_videofile(
+                    str(output_path),
+                    fps=30,
+                    codec='libx264',
+                    audio_codec='aac',
+                    bitrate='2000k',
+                    threads=4,
+                    preset='fast',
+                    ffmpeg_params=['-profile:v', 'main', '-level', '3.1', '-pix_fmt', 'yuv420p']
+                )
+            else:
+                final_video.write_videofile(
+                    str(output_path),
+                    fps=24,
+                    codec='libx264',
+                    audio_codec='aac'
+                )
             
             # Clean up
             for clip in clips:
@@ -118,7 +133,7 @@ class VideoMerger:
             
         except Exception as e:
             logger.error(f"Error merging videos: {e}")
-            return self.create_fallback_merge_with_audio(video_files)
+            return self.create_fallback_merge_with_audio(video_files, mobile_optimized)
     
     def load_storyboard_metadata(self, storyboard_path: str) -> dict:
         """Load metadata from storyboard JSON file."""
@@ -206,7 +221,7 @@ class VideoMerger:
             logger.error(f"Error in fallback merge: {e}")
             return ""
 
-    def create_fallback_merge_with_audio(self, video_files: List[str]) -> str:
+    def create_fallback_merge_with_audio(self, video_files: List[str], mobile_optimized: bool = False) -> str:
         """Create a fallback merged video with audio using ffmpeg."""
         try:
             # Create a file list for ffmpeg
@@ -218,7 +233,8 @@ class VideoMerger:
                     video_path = Path(video_file)
                     if video_path.exists():
                         # Use absolute path to avoid path issues
-                        f.write(f"file '{video_path.absolute()}'\n")
+                        f.write(f"file '{video_path.absolute()}'
+")
                     else:
                         logger.warning(f"Video file not found: {video_file}")
             
@@ -228,7 +244,8 @@ class VideoMerger:
                     # Audio files are in the main output directory
                     audio_file = self.output_dir / f"scene_{i+1}_narration.mp3"
                     if audio_file.exists():
-                        f.write(f"file '{audio_file.absolute()}'\n")
+                        f.write(f"file '{audio_file.absolute()}'
+")
                         logger.info(f"Found audio file for scene {i+1}: {audio_file}")
                     else:
                         logger.warning(f"No audio file found for scene {i+1}: {audio_file}")
@@ -236,7 +253,7 @@ class VideoMerger:
             # Use ffmpeg to concatenate videos and audio separately, then combine
             temp_video_path = self.output_dir / "temp_video.mp4"
             temp_audio_path = self.output_dir / "temp_audio.mp3"
-            output_path = self.output_dir / "final_comprehensive_analysis.mp4"
+            output_path = self.output_dir / ("final_comprehensive_analysis_mobile.mp4" if mobile_optimized else "final_comprehensive_analysis.mp4")
             
             # First concatenate videos
             video_cmd = [
@@ -254,6 +271,75 @@ class VideoMerger:
             if result.returncode != 0:
                 logger.error(f"Video concatenation failed: {result.stderr}")
                 return self.create_fallback_merge(video_files)  # Fall back to video-only
+            
+            # Then concatenate audio files
+            audio_cmd = [
+                'ffmpeg',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', str(audio_list_path),
+                '-c', 'copy',
+                str(temp_audio_path),
+                '-y'
+            ]
+            
+            result = subprocess.run(audio_cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                logger.error(f"Audio concatenation failed: {result.stderr}")
+                # If audio fails, just use the video
+                temp_video_path.rename(output_path)
+                return str(output_path)
+            
+            # Finally combine video and audio with mobile optimization if requested
+            combine_cmd = [
+                'ffmpeg',
+                '-i', str(temp_video_path),
+                '-i', str(temp_audio_path),
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-shortest'
+            ]
+            
+            if mobile_optimized:
+                combine_cmd.extend([
+                    '-profile:v', 'main',
+                    '-level', '3.1',
+                    '-pix_fmt', 'yuv420p',
+                    '-b:v', '2000k',
+                    '-maxrate', '2000k',
+                    '-bufsize', '4000k',
+                    '-preset', 'fast',
+                    '-g', '30',
+                    '-r', '30'
+                ])
+            else:
+                combine_cmd.extend(['-c:v', 'copy'])
+            
+            combine_cmd.extend([str(output_path), '-y'])
+            
+            result = subprocess.run(combine_cmd, capture_output=True, text=True)
+            
+            # Clean up temp files
+            if temp_video_path.exists():
+                temp_video_path.unlink()
+            if temp_audio_path.exists():
+                temp_audio_path.unlink()
+            
+            if result.returncode == 0:
+                logger.info(f"Fallback merge with audio successful: {output_path}")
+                return str(output_path)
+            else:
+                logger.error(f"Audio-video combination failed: {result.stderr}")
+                # If combination fails, just use the video
+                if temp_video_path.exists():
+                    temp_video_path.rename(output_path)
+                    return str(output_path)
+                return ""
+            
+        except Exception as e:
+            logger.error(f"Error in fallback merge with audio: {e}")
+            return self.create_fallback_merge(video_files)  # Fall back to video-only
             
             # Then concatenate audio files
             audio_cmd = [
