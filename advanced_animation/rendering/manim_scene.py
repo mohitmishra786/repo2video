@@ -348,7 +348,7 @@ class ManimSceneRenderer:
             return output_file
             
         except Exception as e:
-            logger.error(f"Error rendering scene {storyboard_scene.id}: {e}")
+            logger.error(f"Error rendering scene {storyboard_scene.id}: {e}", exc_info=True)
             return self.create_fallback_video(storyboard_scene)
     
     def render_scenes_parallel(self, storyboard_scenes: List[StoryboardScene]) -> List[str]:
@@ -376,7 +376,7 @@ class ManimSceneRenderer:
                 logger.info(f"Scene {scene.id} rendered successfully: {output_file}")
                 return output_file
             except Exception as e:
-                logger.error(f"Error rendering scene {scene.id}: {e}")
+                logger.error(f"Error rendering scene {scene.id}: {e}", exc_info=True)
                 return self.create_fallback_video(scene)
         
         # Determine optimal number of workers (max 4 for rendering to avoid system overload)

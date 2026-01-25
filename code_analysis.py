@@ -163,7 +163,7 @@ class EnhancedCodeAnalyzer:
                 logger.info(f"✅ Successfully analyzed: {file_path}")
                 return file_path, file_analysis, None
             except Exception as e:
-                logger.error(f"❌ Error analyzing {file_path}: {e}")
+                logger.error(f"❌ Error analyzing {file_path}: {e}", exc_info=True)
                 # Add a basic file entry even if analysis fails
                 error_entry = {
                     'language': 'unknown',
@@ -228,7 +228,7 @@ class EnhancedCodeAnalyzer:
                 content = f.read()
             logger.debug(f"Read {len(content)} characters from {file_path}")
         except Exception as e:
-            logger.error(f"Failed to read file {file_path}: {e}")
+            logger.error(f"Failed to read file {file_path}: {e}", exc_info=True)
             raise
         
         analysis = {
@@ -257,7 +257,7 @@ class EnhancedCodeAnalyzer:
             else:
                 logger.debug(f"Unknown language, skipping detailed analysis")
         except Exception as e:
-            logger.error(f"Error in detailed analysis of {file_path}: {e}")
+            logger.error(f"Error in detailed analysis of {file_path}: {e}", exc_info=True)
             raise
         
         logger.debug(f"Analysis complete for {file_path}: {len(analysis.get('functions', []))} functions, {len(analysis.get('classes', []))} classes")
