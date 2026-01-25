@@ -277,3 +277,4 @@ local_settings.py
 .env.test
 .env.production 
 whatever.md
+AGENTS.md
