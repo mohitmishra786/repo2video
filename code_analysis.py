@@ -459,7 +459,7 @@ class EnhancedCodeAnalyzer:
                             if isinstance(node.func, ast.Name):
                                 func_name = node.func.id
                                 # Check if function is defined
-                                if not self._is_function_defined(func_name, node, tree):
+                                if not self._is_function_defined(func_name, tree):
                                     patterns.append(ErrorPattern(
                                         type='undefined_function',
                                         severity='error',
@@ -467,13 +467,12 @@ class EnhancedCodeAnalyzer:
                                         message=f"Function '{func_name}' might be undefined",
                                         suggestion=f"Define '{func_name}' before calling it",
                                         code_snippet=lines[node.lineno - 1] if node.lineno <= len(lines) else ''
-                                    ))
+                                    )                                    )
                             elif isinstance(node.func, ast.Attribute):
                                 # Handle method calls like obj.method()
                                 if isinstance(node.func.value, ast.Name):
                                     obj_name = node.func.value.id
                                     method_name = node.func.attr
-                                    full_name = f"{obj_name}.{method_name}"
                                     # Basic check for common issues
                                     if obj_name == 'self' and not self._is_method_defined(method_name, node, tree):
                                         patterns.append(ErrorPattern(
@@ -922,11 +921,12 @@ class EnhancedCodeAnalyzer:
             'code_snippet': error.code_snippet
         }
     
-    def _is_function_defined(self, func_name: str, node: ast.Call, tree: ast.AST) -> bool:
+    def _is_function_defined(self, func_name: str, tree: ast.AST) -> bool:
         """Check if a function is defined in the code."""
         try:
             # Check if it's a built-in function
-            if func_name in dir(__builtins__):
+            import builtins
+            if hasattr(builtins, func_name):
                 return True
             
             # Check if it's defined in the current scope

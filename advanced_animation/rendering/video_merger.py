@@ -16,8 +16,8 @@ try:
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
     from moviepy.video.VideoClip import TextClip, ColorClip
+    from moviepy.audio.io.AudioFileClip import AudioFileClip
     from moviepy import concatenate_videoclips
-    import moviepy as mpy
     MOVIEPY_AVAILABLE = True
 except ImportError:
     MOVIEPY_AVAILABLE = False
@@ -76,7 +76,7 @@ class VideoMerger:
                     if audio_file.exists():
                         logger.info(f"Found audio file for scene {i+1}: {audio_file}")
                         # Load audio and set it to the video clip
-                        audio_clip = mpy.AudioFileClip(str(audio_file))
+                        audio_clip = AudioFileClip(str(audio_file))
                         clip = clip.set_audio(audio_clip)
                     else:
                         logger.warning(f"No audio file found for scene {i+1}: {audio_file}")
@@ -89,6 +89,9 @@ class VideoMerger:
             if not clips:
                 logger.error("No valid video clips found")
                 return self.create_fallback_merge_with_audio(video_files)
+            
+            # Add scene transitions
+            clips = self.create_scene_transitions(clips)
             
             # Concatenate clips
             final_video = concatenate_videoclips(clips, method="compose")
@@ -325,5 +328,5 @@ class VideoMerger:
             return transitioned_clips
             
         except Exception as e:
-            logger.error(f"Error creating transitions: {e}")
+            logger.exception(f"Error creating transitions: {e}")
             return clips 
