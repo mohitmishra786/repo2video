@@ -30,6 +30,13 @@ try:
 except ImportError:
     ADVANCED_AUDIO_AVAILABLE = False
 
+# gTTS fallback for offline text-to-speech
+try:
+    from gtts import gTTS
+    GTTS_AVAILABLE = True
+except ImportError:
+    GTTS_AVAILABLE = False
+
 class AudioGenerator:
     """Handles text-to-speech generation using ElevenLabs API."""
     
@@ -42,12 +49,19 @@ class AudioGenerator:
         """
         self.api_key = api_key or os.getenv('ELEVENLABS_API_KEY')
         self.base_url = "https://api.elevenlabs.io/v1"
-        
+
         if not self.api_key:
-            logger.warning("ElevenLabs API key not provided. Audio generation will be disabled.")
-            self.available = False
+            if GTTS_AVAILABLE:
+                logger.warning("ElevenLabs API key not provided. Using gTTS as fallback.")
+                self.available = True
+                self._use_elevenlabs = False
+            else:
+                logger.warning("ElevenLabs API key not provided and gTTS not available. Audio generation will be disabled.")
+                self.available = False
+                self._use_elevenlabs = False
         else:
             self.available = True
+            self._use_elevenlabs = True
             logger.info("ElevenLabs audio generator initialized successfully")
         
         # Default voice settings
@@ -106,8 +120,8 @@ class AudioGenerator:
     def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None, language: str = 'en', 
                       voice_type: str = 'female', add_background_music: bool = False) -> bool:
         """
-        Generate audio from text using ElevenLabs API.
-        
+        Generate audio from text using ElevenLabs API or gTTS as fallback.
+
         Args:
             text: Text to convert to speech
             output_path: Path where the audio file should be saved
@@ -115,69 +129,101 @@ class AudioGenerator:
             language: Language code for the text (e.g., 'en', 'es', 'fr')
             voice_type: Type of voice (male, female, child, elderly, robot)
             add_background_music: Whether to add background music
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
         if not self.available:
-            logger.error("Audio generation not available - no API key provided")
+            logger.error("Audio generation not available")
             return False
-        
+
         if not text.strip():
             logger.warning("Empty text provided for audio generation")
             return False
-        
-        # Translate text if needed
-        translated_text = self._translate_text(text, language)
-        
+
         try:
-            # Use voice type if specified
-            if voice_type in self.voice_options:
-                voice_id = self.voice_options[voice_type]
-            elif not voice_id:
-                voice_id = self.default_voice_id
-            
-            # Prepare the request
-            url = f"{self.base_url}/text-to-speech/{voice_id}"
-            
-            headers = {
-                "Accept": "audio/mpeg",
-                "Content-Type": "application/json",
-                "xi-api-key": self.api_key
-            }
-            
-            data = {
-                "text": translated_text,
-                "model_id": "eleven_multilingual_v2",  # Updated to newer model
-                "voice_settings": self.default_settings
-            }
-            
-            logger.info(f"Generating audio for text: {translated_text[:50]}... (Language: {language}, Voice: {voice_type})")
-            
-            # Make the API request
-            response = requests.post(url, json=data, headers=headers)
-            
-            if response.status_code == 200:
-                # Save the audio file
-                output_file = Path(output_path)
-                output_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                with open(output_file, 'wb') as f:
-                    f.write(response.content)
-                
-                logger.info(f"Audio generated successfully: {output_path}")
-                
-                # Add background music if requested
-                if add_background_music and ADVANCED_AUDIO_AVAILABLE:
-                    self._add_background_music(output_path)
-                
-                return True
+            if self._use_elevenlabs:
+                return self._generate_elevenlabs_audio(text, output_path, voice_id, language, voice_type, add_background_music)
+            elif GTTS_AVAILABLE:
+                return self._generate_gtts_audio(text, output_path, language, add_background_music)
             else:
-                logger.error(f"Failed to generate audio: {response.status_code} - {response.text}")
+                logger.error("No TTS engine available")
                 return False
-            
         except Exception as e:
             logger.error(f"Error generating audio: {e}")
+            return False
+
+    def _generate_elevenlabs_audio(self, text: str, output_path: str, voice_id: Optional[str] = None,
+                                    language: str = 'en', voice_type: str = 'female',
+                                    add_background_music: bool = False) -> bool:
+        """Generate audio using ElevenLabs API."""
+        # Translate text if needed
+        translated_text = self._translate_text(text, language)
+
+        # Use voice type if specified
+        if voice_type in self.voice_options:
+            voice_id = self.voice_options[voice_type]
+        elif not voice_id:
+            voice_id = self.default_voice_id
+
+        # Prepare the request
+        url = f"{self.base_url}/text-to-speech/{voice_id}"
+
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": self.api_key
+        }
+
+        data = {
+            "text": translated_text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": self.default_settings
+        }
+
+        logger.info(f"Generating ElevenLabs audio: {translated_text[:50]}... (Language: {language}, Voice: {voice_type})")
+
+        response = requests.post(url, json=data, headers=headers)
+
+        if response.status_code == 200:
+            output_file = Path(output_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_file, 'wb') as f:
+                f.write(response.content)
+
+            logger.info(f"ElevenLabs audio generated: {output_path}")
+
+            if add_background_music and ADVANCED_AUDIO_AVAILABLE:
+                self._add_background_music(output_path)
+
+            return True
+        else:
+            logger.error(f"ElevenLabs API error: {response.status_code} - {response.text}")
+            return False
+
+    def _generate_gtts_audio(self, text: str, output_path: str, language: str = 'en',
+                              add_background_music: bool = False) -> bool:
+        """Generate audio using gTTS (Google Text-to-Speech) as fallback."""
+        if not GTTS_AVAILABLE:
+            return False
+
+        logger.info(f"Generating gTTS audio: {text[:50]}... (Language: {language})")
+
+        try:
+            tts = gTTS(text=text, lang=language, slow=False)
+            output_file = Path(output_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            tts.save(str(output_file))
+
+            logger.info(f"gTTS audio generated: {output_path}")
+
+            if add_background_music and ADVANCED_AUDIO_AVAILABLE:
+                self._add_background_music(output_path)
+
+            return True
+        except Exception as e:
+            logger.error(f"gTTS generation failed: {e}")
             return False
     
     def generate_scene_audio(self, scene_narration: str, scene_id: int, output_dir: str, language: str = 'en') -> Optional[str]:

@@ -40,181 +40,55 @@ except (ImportError, TypeError, AttributeError) as e:
     
     # Create dummy classes for when Manim is not available
     class VGroup:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, *args):
             self.elements = list(args)
-        
-        """
-            Moves the to based on self, pos. Takes self and pos as input. Returns a object value.
-            :param self: The self object.
-            :param pos: The pos object.
-            :return: Value of type object
-
-        """
         def move_to(self, pos):
             return self
-        
-        """
-            Performs scale operation. Takes self and factor as input. Returns a object value.
-            :param self: The self object.
-            :param factor: The factor object.
-            :return: Value of type object
-
-        """
         def scale(self, factor):
             return self
-        
-        """
-            Retrieves the center. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def get_center(self):
             return [0, 0, 0]
     
     class Rectangle:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-        
-        """
-            Moves the to based on self, pos. Takes self and pos as input. Returns a object value.
-            :param self: The self object.
-            :param pos: The pos object.
-            :return: Value of type object
-
-        """
         def move_to(self, pos):
             return self
-        
-        """
-            Retrieves the center. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def get_center(self):
             return [0, 0, 0]
     
     class Circle:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-        
-        """
-            Moves the to based on self, pos. Takes self and pos as input. Returns a object value.
-            :param self: The self object.
-            :param pos: The pos object.
-            :return: Value of type object
-
-        """
         def move_to(self, pos):
             return self
-        
-        """
-            Retrieves the center. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def get_center(self):
             return [0, 0, 0]
     
     class Line:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
     
     class Text:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, text, **kwargs):
             self.text = text
             self.kwargs = kwargs
-        
-        """
-            Moves the to based on self, pos. Takes self and pos as input. Returns a object value.
-            :param self: The self object.
-            :param pos: The pos object.
-            :return: Value of type object
-
-        """
         def move_to(self, pos):
             return self
     
     class Arrow:
-        """
-            Performs __init__ operation. Function has side effects. Takes self and text as input. Returns a object value.
-            :param self: The self object.
-            :param text: The text object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
     
     class Axes:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-        
-        """
-            Retrieves the center. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def get_center(self):
             return [0, 0, 0]
-        
-        """
-            Performs c2p operation. Takes self, x and y as input. Returns a object value.
-            :param self: The self object.
-            :param x: The x object.
-            :param y: The y object.
-            :return: Value of type object
-
-        """
         def c2p(self, x, y):
             return [x, y, 0]
     
     class ParametricFunction:
-        """
-            Performs __init__ operation. Function has side effects. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, **kwargs):
             self.kwargs = kwargs
     

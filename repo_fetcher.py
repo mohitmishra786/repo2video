@@ -22,20 +22,25 @@ logger = logging.getLogger(__name__)
 
 class RepoFetcher:
     """Handles fetching and analyzing repositories from GitHub, GitLab, and Bitbucket."""
-    
-    def __init__(self, github_token: Optional[str] = None, gitlab_token: Optional[str] = None, bitbucket_token: Optional[str] = None):
+
+    MAX_REPO_SIZE_MB = 100
+    REQUEST_TIMEOUT = 30
+
+    def __init__(self, github_token: Optional[str] = None, gitlab_token: Optional[str] = None, bitbucket_token: Optional[str] = None, max_repo_size_mb: Optional[int] = None):
         """
         Initialize the RepoFetcher.
-        
+
         Args:
             github_token: Optional GitHub token for authentication
             gitlab_token: Optional GitLab token for authentication
             bitbucket_token: Optional Bitbucket token for authentication
+            max_repo_size_mb: Maximum repo size in MB to fetch (default: 100)
         """
         self.github = Github(github_token) if github_token else Github()
         self.gitlab_token = gitlab_token
         self.bitbucket_token = bitbucket_token
         self.rate_limit = self.github.get_rate_limit()
+        self.max_repo_size_mb = max_repo_size_mb if max_repo_size_mb is not None else self.MAX_REPO_SIZE_MB
         
         # Initialize GitLab and Bitbucket clients only when needed
         self._gitlab_client = None
@@ -84,6 +89,12 @@ class RepoFetcher:
         try:
             if platform == 'github':
                 repo = self.github.get_repo(f"{owner}/{repo_name}")
+                repo_size_mb = repo.size / 1024.0
+                if repo_size_mb > self.max_repo_size_mb:
+                    raise ValueError(
+                        f"Repository is too large: {repo_size_mb:.1f}MB. "
+                        f"Maximum allowed size is {self.max_repo_size_mb}MB."
+                    )
                 return repo
             elif platform == 'gitlab':
                 if not self.gitlab_token:
@@ -197,7 +208,7 @@ class RepoFetcher:
                     # Construct API URL for contents
                     api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{path}"
                     
-                    response = requests.get(api_url)
+                    response = requests.get(api_url, timeout=self.REQUEST_TIMEOUT)
                     if response.status_code == 200:
                         data = response.json()
                         
@@ -209,7 +220,7 @@ class RepoFetcher:
                                         file_content = None
                                         if item.get('size', 0) < 1024 * 1024:
                                             file_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{item['path']}"
-                                            file_response = requests.get(file_url)
+                                            file_response = requests.get(file_url, timeout=self.REQUEST_TIMEOUT)
                                             if file_response.status_code == 200:
                                                 content = file_response.text
                                                 file_content = self._sanitize_sensitive_content(content, item['path'].split('/')[-1])
@@ -248,32 +259,33 @@ class RepoFetcher:
     def _sanitize_sensitive_content(self, content: str, filename: str) -> str:
         """
         Sanitize sensitive content from file content.
-        
+
+        Only redacts email addresses and API key/secret assignments.
+        Does NOT redact URLs, phone numbers, credit card numbers, or hashes,
+        as those patterns would destroy legitimate code content.
+
         Args:
             content: File content to sanitize
             filename: Name of the file
-            
+
         Returns:
             Sanitized content
         """
         # Skip sanitization for certain file types
         if filename in ['README.md', 'README.txt', 'LICENSE', 'CONTRIBUTING.md']:
             return content
-        
+
         # Patterns to detect sensitive information
+        # Limited to email addresses and explicit secret/key assignments only
         sensitive_patterns = [
-            (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),  # Email addresses
-            (r'\b(?:password|passwd|pwd|secret|token|api[_-]?key)\b\s*[:=]\s*[\'\"]([^\'\"]+)[\'\"]', '\1: [SECRET_REDACTED]'),  # Password/secret assignments
-            (r'\b[A-Za-z0-9]{32,}\b', '[HASH_REDACTED]'),  # Long hex strings (likely hashes)
-            (r'\b(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?\b', '[URL_REDACTED]'),  # URLs
-            (r'\b(?:\d[\d-]{8,}\d)\b', '[PHONE_REDACTED]'),  # Phone numbers
-            (r'\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b', '[CREDIT_CARD_REDACTED]')  # Credit card numbers
+            (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', '[EMAIL_REDACTED]'),
+            (r'\b(?:password|passwd|pwd|secret|token|api[_-]?key|auth[_-]?token|access[_-]?key)\b\s*[:=]\s*[\'"][^\'\"]+[\'"]', '[SECRET_REDACTED]'),
         ]
-        
+
         sanitized_content = content
         for pattern, replacement in sensitive_patterns:
             sanitized_content = re.sub(pattern, replacement, sanitized_content, flags=re.IGNORECASE)
-        
+
         return sanitized_content
     
     def analyze_repo(self, repo: Repository) -> Dict:

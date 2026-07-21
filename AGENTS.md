@@ -1,6 +1,6 @@
-# AGENTS.md - RepoToVideo Development Guide
+# AGENTS.md - repo2video Development Guide
 
-This document provides guidelines for agentic coding tools working in the RepoToVideo codebase.
+This document provides guidelines for agentic coding tools working in the repo2video codebase.
 
 ## 🔧 Build/Lint/Test Commands
 
@@ -130,7 +130,7 @@ logger.critical("Critical failures")
 ## 📁 Project Structure
 
 ```
-RepoToVideo/
+repo2video/
 ├── app.py                     # Main Streamlit application
 ├── repo_fetcher.py            # GitHub repository fetching
 ├── code_analysis.py           # Enhanced code analysis
@@ -340,4 +340,4 @@ python -c "from manim import Scene; print('ManimGL imports working')"
 python test_real_repository.py https://github.com/TheAlgorithms/Python
 ```
 
-This guide ensures consistency and quality across the RepoToVideo codebase for all contributors, including agentic coding tools.
+This guide ensures consistency and quality across the repo2video codebase for all contributors, including agentic coding tools.

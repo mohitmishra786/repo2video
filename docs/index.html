@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>repo2video — Turn GitHub repos into narrated videos</title>
+    <meta name="description" content="Turn any GitHub repository into a narrated code walkthrough video. Open source, free, runs on your machine.">
+    <meta property="og:title" content="repo2video — Turn GitHub repos into narrated videos">
+    <meta property="og:description" content="Paste any GitHub URL → Get a 1080p narrated code walkthrough video. Open source and free.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mohitmishra786.github.io/repo2video">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+        h1 { font-size: 3rem; color: #58a6ff; margin-bottom: 12px; }
+        .tagline { font-size: 1.3rem; color: #8b949e; margin-bottom: 32px; }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 32px 0; }
+        .feature { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+        .feature h3 { color: #58a6ff; margin-bottom: 8px; }
+        .feature p { color: #8b949e; font-size: 0.95rem; }
+        code {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+        .btn {
+            display: inline-block;
+            background: #238636;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn-secondary {
+            background: #21262d;
+            border: 1px solid #30363d;
+        }
+        .btn-secondary:hover { background: #30363d; }
+        a { color: #58a6ff; }
+    </style>
+</head>
+<body>
+    <h1>repo2video</h1>
+    <p class="tagline">Paste any GitHub URL &rarr; Get a 1080p narrated code walkthrough video in minutes. Open source. Free.</p>
+
+    <p>
+        <a href="https://github.com/mohitmishra786/repo2video" class="btn">View on GitHub</a>
+        <a href="https://github.com/mohitmishra786/repo2video#installation" class="btn btn-secondary">Install</a>
+    </p>
+
+    <div class="features">
+        <div class="feature">
+            <h3>Code Analysis</h3>
+            <p>AST-based Python analysis with multi-language support. Understands structure, functions, and classes.</p>
+        </div>
+        <div class="feature">
+            <h3>AI Storyboard</h3>
+            <p>Automatically plan video scenes from code structure using LLM or rule-based generation.</p>
+        </div>
+        <div class="feature">
+            <h3>Video Rendering</h3>
+            <p>MoviePy-based scene rendering with code display, color-coded backgrounds, and narration.</p>
+        </div>
+        <div class="feature">
+            <h3>Text-to-Speech</h3>
+            <p>Automatic narration via gTTS (free, offline) or ElevenLabs (premium voices).</p>
+        </div>
+    </div>
+
+    <h2>Install</h2>
+    <pre>git clone https://github.com/mohitmishra786/repo2video.git
+cd repo2video
+pip install -r requirements.txt
+streamlit run app.py</pre>
+
+    <h2>Or use Docker</h2>
+    <pre>docker build -t repo2video .
+docker run -p 8501:8501 repo2video</pre>
+
+    <p style="margin-top: 40px; color: #484f58; font-size: 0.85rem;">
+        MIT Licensed &middot; <a href="https://github.com/mohitmishra786/repo2video">GitHub</a>
+    </p>
+</body>
+</html>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Setup script for RepoToVideo
+Setup script for # repo2video
 
-This script helps users install and configure the RepoToVideo application.
+This script helps users install and configure the # repo2video application.
 """
 
 import os
@@ -65,7 +65,7 @@ def check_system_requirements():
 
 def create_config_file():
     """Create a basic configuration file."""
-    config_content = """# RepoToVideo Configuration
+    config_content = """# # repo2video Configuration
 
 # GitHub Settings
 GITHUB_TOKEN=your_github_token_here
@@ -185,7 +185,7 @@ def show_next_steps():
 
 def main():
     """Main setup function."""
-    print("🎥 RepoToVideo Setup")
+    print("🎥 # repo2video Setup")
     print("="*30)
     
     # Check Python version

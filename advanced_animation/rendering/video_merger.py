@@ -13,11 +13,7 @@ import json
 logger = logging.getLogger(__name__)
 
 try:
-    from moviepy.video.io.VideoFileClip import VideoFileClip
-    from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-    from moviepy.video.VideoClip import TextClip, ColorClip
-    from moviepy.audio.io.AudioFileClip import AudioFileClip
-    from moviepy import concatenate_videoclips
+    from moviepy import VideoFileClip, AudioFileClip, TextClip, ColorClip, CompositeVideoClip, concatenate_videoclips
     MOVIEPY_AVAILABLE = True
 except ImportError:
     MOVIEPY_AVAILABLE = False
@@ -78,7 +74,7 @@ class VideoMerger:
                         logger.info(f"Found audio file for scene {i+1}: {audio_file}")
                         # Load audio and set it to the video clip
                         audio_clip = AudioFileClip(str(audio_file))
-                        clip = clip.set_audio(audio_clip)
+                        clip = clip.with_audio(audio_clip)
                     else:
                         logger.warning(f"No audio file found for scene {i+1}: {audio_file}")
                     
@@ -125,9 +121,15 @@ class VideoMerger:
             
             # Clean up
             for clip in clips:
-                clip.close()
-            final_video.close()
-            
+                try:
+                    clip.close()
+                except (AttributeError, TypeError):
+                    pass
+            try:
+                final_video.close()
+            except (AttributeError, TypeError):
+                pass
+
             logger.info(f"Successfully merged videos with audio to: {output_path}")
             return str(output_path)
             
@@ -157,20 +159,20 @@ class VideoMerger:
             # Create title text
             title = metadata.get('title', 'Code Repository Analysis')
             title_clip = TextClip(
-                title,
-                fontsize=48,
+                text=title,
+                font_size=48,
                 color='white',
                 font='Arial-Bold'
-            ).set_position(('center', 50)).set_duration(3)
-            
+            ).with_position(('center', 50)).with_duration(3)
+
             # Create subtitle with metadata
             subtitle_text = f"Duration: {metadata.get('total_duration', 0):.1f}s | Scenes: {metadata.get('scene_count', 0)}"
             subtitle_clip = TextClip(
-                subtitle_text,
-                fontsize=24,
+                text=subtitle_text,
+                font_size=24,
                 color='gray',
                 font='Arial'
-            ).set_position(('center', 100)).set_duration(3)
+            ).with_position(('center', 100)).with_duration(3)
             
             # Composite the video
             final_clip = CompositeVideoClip([video_clip, title_clip, subtitle_clip])
@@ -233,8 +235,7 @@ class VideoMerger:
                     video_path = Path(video_file)
                     if video_path.exists():
                         # Use absolute path to avoid path issues
-                        f.write(f"file '{video_path.absolute()}'
-")
+                        f.write(f"file '{video_path.absolute()}'\n")
                     else:
                         logger.warning(f"Video file not found: {video_file}")
             
@@ -244,8 +245,7 @@ class VideoMerger:
                     # Audio files are in the main output directory
                     audio_file = self.output_dir / f"scene_{i+1}_narration.mp3"
                     if audio_file.exists():
-                        f.write(f"file '{audio_file.absolute()}'
-")
+                        f.write(f"file '{audio_file.absolute()}'\n")
                         logger.info(f"Found audio file for scene {i+1}: {audio_file}")
                     else:
                         logger.warning(f"No audio file found for scene {i+1}: {audio_file}")
@@ -340,77 +340,24 @@ class VideoMerger:
         except Exception as e:
             logger.error(f"Error in fallback merge with audio: {e}")
             return self.create_fallback_merge(video_files)  # Fall back to video-only
-            
-            # Then concatenate audio files
-            audio_cmd = [
-                'ffmpeg',
-                '-f', 'concat',
-                '-safe', '0',
-                '-i', str(audio_list_path),
-                '-c', 'copy',
-                str(temp_audio_path),
-                '-y'
-            ]
-            
-            result = subprocess.run(audio_cmd, capture_output=True, text=True)
-            
-            if result.returncode != 0:
-                logger.error(f"Audio concatenation failed: {result.stderr}")
-                # If audio fails, just use the video
-                temp_video_path.rename(output_path)
-                return str(output_path)
-            
-            # Finally combine video and audio
-            combine_cmd = [
-                'ffmpeg',
-                '-i', str(temp_video_path),
-                '-i', str(temp_audio_path),
-                '-c:v', 'copy',
-                '-c:a', 'aac',
-                '-shortest',
-                str(output_path),
-                '-y'
-            ]
-            
-            result = subprocess.run(combine_cmd, capture_output=True, text=True)
-            
-            # Clean up temp files
-            if temp_video_path.exists():
-                temp_video_path.unlink()
-            if temp_audio_path.exists():
-                temp_audio_path.unlink()
-            
-            if result.returncode == 0:
-                logger.info(f"Fallback merge with audio successful: {output_path}")
-                return str(output_path)
-            else:
-                logger.error(f"Audio-video combination failed: {result.stderr}")
-                # If combination fails, just use the video
-                if temp_video_path.exists():
-                    temp_video_path.rename(output_path)
-                    return str(output_path)
-                return ""
-                
-        except Exception as e:
-            logger.error(f"Error in fallback merge with audio: {e}")
-            return self.create_fallback_merge(video_files)  # Fall back to video-only
-    
+
     def create_scene_transitions(self, clips: List) -> List:
         """Add smooth transitions between scenes."""
         try:
+            from moviepy import vfx
             transitioned_clips = []
-            
+
             for i, clip in enumerate(clips):
-                # Add fade in/out effects
-                if i == 0:  # First clip
-                    clip = clip.fadein(0.5)
-                if i == len(clips) - 1:  # Last clip
-                    clip = clip.fadeout(0.5)
-                else:  # Middle clips
-                    clip = clip.fadein(0.3).fadeout(0.3)
-                
+                if i == 0:
+                    clip = clip.with_effect(vfx.FadeIn, duration=0.5)
+                if i == len(clips) - 1:
+                    clip = clip.with_effect(vfx.FadeOut, duration=0.5)
+                else:
+                    clip = clip.with_effect(vfx.FadeIn, duration=0.3)
+                    clip = clip.with_effect(vfx.FadeOut, duration=0.3)
+
                 transitioned_clips.append(clip)
-            
+
             return transitioned_clips
             
         except Exception as e:

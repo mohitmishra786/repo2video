@@ -49,121 +49,46 @@ except (ImportError, TypeError, AttributeError) as e:
     
     # Create dummy classes for when Manim is not available
     class Scene:
-        """
-            Performs __init__ operation. Function has side effects. Takes self and storyboard_scene as input. Returns a object value.
-            :param self: The self object.
-            :param storyboard_scene: The storyboard_scene value of type StoryboardScene.
-            :return: Value of type object
-
-        """
         def __init__(self):
             pass
-        
-        """
-            Adds the add to the collection. Takes self and obj as input. Returns a object value.
-            :param self: The self object.
-            :param obj: The obj object.
-            :return: Value of type object
 
-        """
         def add(self, obj):
             pass
-        
-        """
-            Performs play operation. Takes self, animation and run_time as input. Returns a object value.
-            :param self: The self object.
-            :param animation: The animation object.
-            :param run_time: The run_time object.
-            :return: Value of type object
 
-        """
         def play(self, animation, run_time=1):
             pass
-        
-        """
-            Waits the value based on self, duration. Takes self and duration as input. Returns a object value.
-            :param self: The self object.
-            :param duration: The duration object.
-            :return: Value of type object
 
-        """
         def wait(self, duration):
             pass
-    
+
     class FadeIn:
-        """
-            Performs __init__ operation. Function has side effects. Takes self and output_dir as input. Returns a object value.
-            :param self: The self object.
-            :param output_dir: The output_dir string.
-            :return: Value of type object
-
-        """
         def __init__(self, target, run_time=1):
             self.target = target
             self.run_time = run_time
-    
+
     class FadeOut:
-        """
-            Performs __init__ operation. Takes self as input. Returns a object value.
-            :param self: The self object.
-            :return: Value of type object
-
-        """
         def __init__(self, target, run_time=1):
             self.target = target
             self.run_time = run_time
-    
+
     class Create:
-        """
-            Performs __init__ operation. Function has side effects. Takes self, target and run_time as input. Returns a object value.
-            :param self: The self object.
-            :param target: The target object.
-            :param run_time: The run_time object.
-            :return: Value of type object
-
-        """
         def __init__(self, target, run_time=1):
             self.target = target
             self.run_time = run_time
-    
-    class Scale:
-        """
-            Performs __init__ operation. Function has side effects. Takes self, target and run_time as input. Returns a object value.
-            :param self: The self object.
-            :param target: The target object.
-            :param run_time: The run_time object.
-            :return: Value of type object
 
-        """
+    class Scale:
         def __init__(self, target, scale_factor=1.2, run_time=1):
             self.target = target
             self.scale_factor = scale_factor
             self.run_time = run_time
-    
-    class Indicate:
-        """
-            Performs __init__ operation. Function has side effects. Takes self, target and run_time as input. Returns a object value.
-            :param self: The self object.
-            :param target: The target object.
-            :param run_time: The run_time object.
-            :return: Value of type object
 
-        """
+    class Indicate:
         def __init__(self, target, run_time=1, **kwargs):
             self.target = target
             self.run_time = run_time
             self.kwargs = kwargs
-    
-    class Circumscribe:
-        """
-            Performs __init__ operation. Function has side effects. Takes self, target, scale_factor and run_time as input. Returns a object value.
-            :param self: The self object.
-            :param target: The target object.
-            :param scale_factor: The scale_factor object.
-            :param run_time: The run_time object.
-            :return: Value of type object
 
-        """
+    class Circumscribe:
         def __init__(self, target, run_time=1):
             self.target = target
             self.run_time = run_time
@@ -490,105 +415,7 @@ class ManimSceneRenderer:
             logger.error(f"E2B execution failed: {e}")
             return None
     
-    def generate_scene_code(self, storyboard_scene: StoryboardScene) -> str:
-        """
-        Generate Manim scene code from a storyboard scene.
-        
-        Args:
-            storyboard_scene: Scene to convert to code
-            
-        Returns:
-            Generated Manim scene code
-        """
-        # Create a unique class name for this scene
-        scene_class_name = f"Scene{storyboard_scene.id}"
-        
-        # Check if this scene contains code execution
-        has_code_execution = any(
-            element.type == "code" and 
-            element.properties.get("execute", False)
-            for element in storyboard_scene.visual_elements
-        )
-        
-        # Generate the scene code
-        scene_code = f"""
-from manim import *
-
-class {scene_class_name}(Scene):
-    def construct(self):
-        # Scene title
-        title = Text("{storyboard_scene.concept}", font_size=36)
-        title.to_edge(UP)
-        self.play(Write(title))
-        self.wait(1)
-        
-        # Scene content
-        # Truncate narration at word boundary
-        narration = storyboard_scene.narration
-        if len(narration) > 100:
-            truncated = narration[:100].rsplit(' ', 1)[0] + "..."
-        else:
-            truncated = narration
-            
-        content = Text(f"{truncated}", font_size=24)
-        content.next_to(title, DOWN, buff=0.5)
-        self.play(Write(content))
-        self.wait(2)
-        
-        # Visual elements and their variable names
-        {visual_elements_code}
-        
-        # Code execution results (if any)
-        {self._generate_code_execution_results(storyboard_scene) if has_code_execution else ''}
-        
-        # Animation steps
-        {self._generate_animation_steps_code(storyboard_scene, element_var_map)}
-        
-        # Clean up
-        self.wait(1)
-        self.play(FadeOut(title), FadeOut(content))
-"""
-        
-        return scene_code
-
-    def generate_scene_code(self, storyboard_scene: StoryboardScene) -> str:
-        """
-        Generate Manim scene code from a storyboard scene.
-        
-        Args:
-            storyboard_scene: Scene to convert to code
-            
-        Returns:
-            Generated Manim scene code
-        """
-        # Create a unique class name for this scene
-        scene_class_name = f"Scene{storyboard_scene.id}"
-        
-        # Check if this scene contains code execution
-        has_code_execution = any(
-            element.type == "code" and 
-            element.properties.get("execute", False)
-            for element in storyboard_scene.visual_elements
-        )
-        
-        # Generate visual elements code and mapping
-        visual_elements_code, element_var_map = self._generate_visual_elements_code(storyboard_scene)
-        
-        # Generate the scene code template
-        scene_code = f"""
-from manim import *
-
-class {scene_class_name}(Scene):
-    def construct(self):
-        # Scene title
-        title = Text("{storyboard_scene.concept}", font_size=36)
-        title.to_edge(UP)
-        self.play(Write(title))
-        self.wait(1)
-""" + self._get_scene_body(storyboard_scene, has_code_execution, visual_elements_code, element_var_map)
-
-        return scene_code
-
+    
     def _get_scene_body(self, storyboard_scene: StoryboardScene, has_code_execution: bool, visual_elements_code: str, element_var_map: dict) -> str:
         # Scene content
         # Truncate narration at word boundary
@@ -1454,44 +1281,220 @@ AnimationStep(
             raise
     
     def create_fallback_video(self, storyboard_scene: StoryboardScene) -> str:
-        """Create a fallback video when Manim is not available."""
+        """Create a rendered video scene using MoviePy when Manim is not available.
+
+        Produces a properly composed video clip with:
+        - Color-coded background based on scene type
+        - Scene title/concept displayed prominently
+        - Code snippets in monospace font (if available)
+        - Narration text as subtitle overlay
+        - Fade-in and fade-out transitions
+        """
         try:
-            logger.info("Creating fallback video for scene")
-            
-             # Create a simple text-based video using MoviePy
-            from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-            from moviepy.video.VideoClip import ColorClip, TextClip
-            
-            # Create background
+            logger.info(f"Creating MoviePy video for scene {storyboard_scene.id}: {storyboard_scene.concept}")
+
+            from moviepy import ColorClip, TextClip, CompositeVideoClip
+
+            duration = max(3.0, storyboard_scene.duration)
+            concept = storyboard_scene.concept or "Untitled Scene"
+            code_snippet = storyboard_scene.code_snippet
+            narration = storyboard_scene.narration
+
+            scene_category = self._classify_scene(concept)
+            bg_color = self._scene_colors.get(scene_category, (15, 25, 45))
+            title_color = self._title_colors.get(scene_category, "white")
+
             background = ColorClip(
                 size=(1920, 1080),
-                color=(25, 25, 35),
-                duration=storyboard_scene.duration
+                color=bg_color,
+                duration=duration
             )
-            
-             # Create text
-            text_clip = TextClip(
-                storyboard_scene.concept,
+
+            clips = [background]
+
+            title_bar = ColorClip(
+                size=(1920, 120),
+                color=self._darken_color(bg_color, 30),
+                duration=duration
+            ).with_position(("center", 0))
+            clips.append(title_bar)
+
+            wrapped_title = self._wrap_text(concept, max_chars=50)
+            title_clip = TextClip(
+                text=wrapped_title,
                 font_size=48,
-                color='white',
-                font='Arial-Bold'
-            ).set_position('center').set_duration(storyboard_scene.duration)
-            
-            # Composite
-            video = CompositeVideoClip([background, text_clip])
-            
-            # Save
-            output_file = self.output_dir / f"fallback_scene_{storyboard_scene.id}.mp4"
+                color=title_color,
+                font="Arial-Bold",
+                size=(1800, 100),
+                method="caption",
+                text_align="center"
+            ).with_position(("center", 30)).with_duration(duration)
+            clips.append(title_clip)
+
+            if code_snippet and code_snippet.strip():
+                code_display = self._format_code_snippet(code_snippet, max_lines=20)
+                code_clip = TextClip(
+                    text=code_display,
+                    font_size=22,
+                    color="#c5d4e8",
+                    font="Courier-New",
+                    size=(1800, 600),
+                    method="label",
+                    text_align="left",
+                    bg_color=self._darken_color(bg_color, 20)
+                ).with_position(("center", 200)).with_duration(duration)
+                clips.append(code_clip)
+
+            if narration and narration.strip():
+                subtitle_lines = self._wrap_text(narration, max_chars=90)
+                subtitle_clip = TextClip(
+                    text=subtitle_lines,
+                    font_size=28,
+                    color="#cccccc",
+                    font="Arial",
+                    size=(1800, 120),
+                    method="caption",
+                    text_align="center",
+                    bg_color=(0, 0, 0, 80)
+                ).with_position(("center", 900)).with_duration(duration)
+                clips.append(subtitle_clip)
+
+            scene_label = TextClip(
+                text=f"Scene {storyboard_scene.id}",
+                font_size=20,
+                color="#666688",
+                font="Arial"
+            ).with_position((30, 1040)).with_duration(duration)
+            clips.append(scene_label)
+
+            video = CompositeVideoClip(clips)
+
+            output_file = self.output_dir / f"scene_{storyboard_scene.id:03d}.mp4"
             video.write_videofile(
                 str(output_file),
-                fps=30,
-                codec='libx264',
-                audio_codec='aac'
+                fps=24,
+                codec="libx264",
+                audio_codec="aac",
+                logger=None,
             )
-            
-            logger.info(f"Fallback video created: {output_file}")
+
+            logger.info(f"Scene {storyboard_scene.id} video created: {output_file}")
             return str(output_file)
-            
+
         except Exception as e:
-            logger.error(f"Error creating fallback video: {e}")
-            raise 
+            logger.error(f"Error creating MoviePy video for scene {storyboard_scene.id}: {e}", exc_info=True)
+            return self._create_minimal_fallback(storyboard_scene)
+
+    _scene_colors = {
+        "intro": (20, 40, 80),
+        "overview": (15, 35, 55),
+        "code": (10, 20, 40),
+        "feature": (25, 45, 30),
+        "architecture": (40, 25, 40),
+        "testing": (50, 30, 20),
+        "conclusion": (20, 45, 45),
+        "default": (15, 25, 45),
+    }
+
+    _title_colors = {
+        "intro": "#4fc3f7",
+        "overview": "#81d4fa",
+        "code": "#a5d6a7",
+        "feature": "#fff59d",
+        "architecture": "#ce93d8",
+        "testing": "#ffab91",
+        "conclusion": "#80cbc4",
+        "default": "#ffffff",
+    }
+
+    @staticmethod
+    def _classify_scene(concept: str) -> str:
+        """Classify a scene based on keywords in its concept text."""
+        concept_lower = concept.lower()
+        keywords = {
+            "intro": ["intro", "welcome", "overview", "summary", "title"],
+            "overview": ["overview", "summary", "introduction", "what is"],
+            "code": ["code", "function", "class", "method", "implement", "algorithm", "parse", "logic"],
+            "feature": ["feature", "highlight", "key", "main", "important", "showcase"],
+            "architecture": ["architecture", "structure", "design", "pattern", "component", "module", "pipeline"],
+            "testing": ["test", "testing", "spec", "verify", "assert", "validate", "quality"],
+            "conclusion": ["conclusion", "summary", "end", "final", "recap", "result", "thanks"],
+        }
+        scored = {k: sum(1 for kw in v if kw in concept_lower) for k, v in keywords.items()}
+        best = max(scored.items(), key=lambda x: x[1])
+        return best[0] if best[1] > 0 else "default"
+
+    @staticmethod
+    def _darken_color(rgb: tuple, amount: int) -> tuple:
+        """Darken an RGB color tuple by subtracting amount from each channel."""
+        return tuple(max(0, c - amount) for c in rgb[:3]) + (rgb[3] if len(rgb) > 3 else 0,)
+
+    @staticmethod
+    def _wrap_text(text: str, max_chars: int) -> str:
+        """Wrap text to a maximum character width by inserting newlines."""
+        if len(text) <= max_chars:
+            return text
+        words = text.split()
+        lines = []
+        current = ""
+        for word in words:
+            test = f"{current} {word}".strip()
+            if len(test) <= max_chars:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_code_snippet(code: str, max_lines: int = 20) -> str:
+        """Format a code snippet for display with line numbers."""
+        lines = code.strip().split("\n")
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines.append("... (truncated)")
+        return "\n".join(lines)
+
+    def _create_minimal_fallback(self, storyboard_scene: StoryboardScene) -> str:
+        """Create an absolute-minimum fallback video when the enhanced renderer fails."""
+        try:
+            from moviepy import ColorClip, TextClip, CompositeVideoClip
+
+            duration = max(3.0, storyboard_scene.duration)
+            concept = storyboard_scene.concept or "Scene"
+
+            background = ColorClip(
+                size=(1920, 1080),
+                color=(15, 25, 45),
+                duration=duration
+            )
+
+            text_clip = TextClip(
+                text=concept[:80],
+                font_size=48,
+                color="white",
+                font="Arial-Bold",
+                size=(1800, 200),
+                method="caption"
+            ).with_position("center").with_duration(duration)
+
+            video = CompositeVideoClip([background, text_clip])
+
+            output_file = self.output_dir / f"scene_{storyboard_scene.id:03d}.mp4"
+            video.write_videofile(
+                str(output_file),
+                fps=24,
+                codec="libx264",
+                audio_codec="aac",
+                logger=None,
+            )
+
+            logger.info(f"Minimal fallback video created: {output_file}")
+            return str(output_file)
+
+        except Exception as e:
+            logger.error(f"All rendering attempts failed for scene {storyboard_scene.id}: {e}")
+            return "" 

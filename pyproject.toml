@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo2video"
+version = "0.1.0"
+description = "Turn any GitHub repository into a narrated code walkthrough video"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "mohitmishra786"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Software Development :: Documentation",
+]
+dependencies = [
+    "streamlit>=1.47.1",
+    "moviepy>=2.0.0",
+    "numpy>=1.24.0",
+    "Pillow>=10.0.0",
+    "PyGithub>=2.7.0",
+    "GitPython>=3.1.45",
+    "markdown>=3.5.1",
+    "requests>=2.31.0",
+    "gTTS>=2.5.4",
+    "pydub>=0.25.1",
+    "langchain>=0.1.0",
+    "langchain-openai>=0.0.5",
+    "langchain-groq>=0.0.1",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "PyYAML>=6.0.2",
+    "rich>=14.1.0",
+    "pysrt>=1.1.1",
+]
+
+[project.optional-dependencies]
+premium = ["elevenlabs>=0.2.24"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+repo2video = "repo2video.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mohitmishra786/repo2video"
+Issues = "https://github.com/mohitmishra786/repo2video/issues"

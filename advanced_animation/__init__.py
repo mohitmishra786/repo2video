@@ -53,15 +53,6 @@ class AdvancedAnimationSystem:
         self.audio_generator = AudioGenerator()
         
         logger.info("AdvancedAnimationSystem initialized")
-    
-    """
-        Creates a new animation instance. Function iterates over data, conditionally processes input, may throw exceptions, may return early, has side effects. Takes self, code_analysis and capture_execution as input. Returns a string value.
-        :param self: The self object.
-        :param code_analysis: The code_analysis value of type Dict[(str, Any)].
-        :param capture_execution: The capture_execution boolean value.
-        :return: String value
-
-    """
     def create_animation_from_code(self, code_analysis: Dict[str, Any], 
                                  capture_execution: bool = True) -> str:
         """
@@ -110,15 +101,6 @@ class AdvancedAnimationSystem:
         except Exception as e:
             logger.error(f"Error creating animation: {e}")
             raise
-    
-    """
-        Performs _add_execution_traces_to_storyboard operation. Function iterates over data, conditionally processes input, has side effects. Takes self, storyboard and code_analysis as input. Returns a object value.
-        :param self: The self object.
-        :param storyboard: The storyboard value of type Storyboard.
-        :param code_analysis: The code_analysis value of type Dict[(str, Any)].
-        :return: Value of type object
-
-    """
     def _add_execution_traces_to_storyboard(self, storyboard: Storyboard, 
                                           code_analysis: Dict[str, Any]):
         """Add execution traces to storyboard scenes."""
@@ -178,14 +160,6 @@ class AdvancedAnimationSystem:
             raise
 
 # Convenience functions
-"""
-    Creates a new animation instance. Function has side effects. Takes code_analysis, openai_api_key and output_dir as input. Returns a string value.
-    :param code_analysis: The code_analysis value of type Dict[(str, Any)].
-    :param openai_api_key: The openai_api_key value of type Optional[str].
-    :param output_dir: The output_dir string.
-    :return: String value
-
-"""
 def create_animation(code_analysis: Dict[str, Any], 
                    openai_api_key: Optional[str] = None,
                    output_dir: str = "advanced_output") -> str:

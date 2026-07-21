@@ -164,13 +164,25 @@ def main():
     parser.add_argument("--language", default="en", help="Language for narration")
     parser.add_argument("--quality", choices=["720p", "1080p", "4k"], default="1080p", help="Video quality")
     parser.add_argument("--mobile", action="store_true", help="Optimize for mobile devices")
-    
+    parser.add_argument("--dry-run", action="store_true", help="Validate URL and analyze without rendering video")
+
     args = parser.parse_args()
-    
+
     # Validate repository URL
     if not args.repo_url.startswith("https://github.com/"):
         print("Please provide a valid GitHub repository URL")
         print("   Example: https://github.com/user/repo")
+        return
+
+    if args.dry_run:
+        print(f"Dry run mode: validating {args.repo_url}")
+        fetcher = RepoFetcher()
+        is_valid, platform, owner, repo_name = fetcher.validate_repo_url(args.repo_url)
+        if not is_valid:
+            print("Invalid repository URL")
+            return
+        print(f"Platform: {platform}, Owner: {owner}, Repo: {repo_name}")
+        print("Dry run complete. URL is valid. No video will be generated.")
         return
     
     # Process the repository
