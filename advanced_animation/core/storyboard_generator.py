@@ -259,16 +259,56 @@ class StoryboardGenerator:
                 )
                 response_content = response.choices[0].message.content
 
-            # Parse the response
+            # Parse the response with JSON extraction and retry
             if response_content:
-                return json.loads(response_content)
+                return self._extract_json_response(response_content)
             else:
                 logger.error("Empty response from AI provider")
                 return None
 
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON parse error from AI response: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error calling AI API: {e}")
             raise
+
+    def _extract_json_response(self, content: str) -> Optional[Dict[str, Any]]:
+        """Extract JSON from AI response with multiple fallback strategies."""
+        import re
+
+        # Strategy 1: Direct parse
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+
+        # Strategy 2: Extract from markdown code block
+        md_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', content, re.DOTALL)
+        if md_match:
+            try:
+                return json.loads(md_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Strategy 3: Find first {...} or [...] object
+        obj_match = re.search(r'\{.*\}|\[.*\]', content, re.DOTALL)
+        if obj_match:
+            try:
+                return json.loads(obj_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        # Strategy 4: Try to fix common JSON issues (trailing commas, single quotes)
+        try:
+            cleaned = re.sub(r',\s*}', '}', content)
+            cleaned = re.sub(r',\s*\]', ']', cleaned)
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+        logger.error(f"Failed to parse JSON from AI response: {content[:200]}...")
+        return None
 
     def _generate_chunked_storyboard(self, client, model: str, code_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Generate storyboard by processing files in chunks to avoid token limits."""

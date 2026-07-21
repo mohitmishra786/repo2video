@@ -284,4 +284,6 @@ test_output_chunked/
 test_output_debug/
 test_output_final/
 test_output_final_fix/
-test_output_fixed/
+test_output_fixed/.agents/
+.claude/
+skills-lock.json

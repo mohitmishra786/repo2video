@@ -107,6 +107,8 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 repo2video is free and open source. If you find it useful, consider [sponsoring the project](https://github.com/sponsors/mohitmishra786) to support ongoing development.
 
+[Join our Discord](https://discord.com/invite/2QWN9y3B9M) for questions, help, and community discussion.
+
 ## Status
 
 repo2video is in active early development. Expect rapid changes and occasional bugs. I maintain this in my spare time — updates every 2-4 weeks.

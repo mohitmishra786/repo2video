@@ -20,11 +20,27 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Tree-sitter imports
 try:
     import tree_sitter
-    from tree_sitter import Language, Parser
+    from tree_sitter import Language, Parser, Query
+    TREE_SITTER_AVAILABLE = True
 except ImportError:
     tree_sitter = None
     Language = None
     Parser = None
+    Query = None
+    TREE_SITTER_AVAILABLE = False
+
+# Tree-sitter language grammars (optional, install separately)
+try:
+    import tree_sitter_javascript as tsjs
+    TS_JS_AVAILABLE = True
+except ImportError:
+    TS_JS_AVAILABLE = False
+
+try:
+    import tree_sitter_java as tsjava
+    TS_JAVA_AVAILABLE = True
+except ImportError:
+    TS_JAVA_AVAILABLE = False
 
 # Optional imports for advanced features
 try:
@@ -125,27 +141,29 @@ class EnhancedCodeAnalyzer:
         self._setup_vector_embeddings()
 
     def _setup_tree_sitter(self):
-        """Setup Tree-sitter parsers for different languages."""
-        if not tree_sitter or not Parser:
-            logger.warning("Tree-sitter not available. Using fallback parsing.")
+        """Setup Tree-sitter parsers for different languages with fallback to regex."""
+        if not TREE_SITTER_AVAILABLE:
+            logger.warning("Tree-sitter not available. Using regex-based parsing.")
             self.language_parsers = {}
             return
 
         try:
-            # Initialize parsers for different languages
-            self.language_parsers = {
-                LanguageType.PYTHON: Parser(),
-                LanguageType.JAVASCRIPT: Parser(),
-                LanguageType.JAVA: Parser(),
-                LanguageType.RUST: Parser(),
-                LanguageType.GO: Parser(),
-                LanguageType.CPP: Parser(),
-                LanguageType.TYPESCRIPT: Parser()
-            }
+            self.language_parsers = {}
 
-            # Set language libraries (these would need to be installed)
-            # For now, we'll use fallback parsing
-            logger.info("Tree-sitter parsers initialized for multiple languages")
+            if TS_JS_AVAILABLE:
+                js_lang = Language(tsjs.language())
+                self.language_parsers[LanguageType.JAVASCRIPT] = Parser(js_lang)
+                self.language_parsers[LanguageType.TYPESCRIPT] = Parser(js_lang)
+                logger.info("Tree-sitter JavaScript parser initialized")
+
+            if TS_JAVA_AVAILABLE:
+                java_lang = Language(tsjava.language())
+                self.language_parsers[LanguageType.JAVA] = Parser(java_lang)
+                logger.info("Tree-sitter Java parser initialized")
+
+            if not self.language_parsers:
+                logger.warning("No tree-sitter language grammars installed. Install via: "
+                               "pip install tree-sitter-javascript tree-sitter-java")
 
         except Exception as e:
             logger.warning(f"Failed to setup Tree-sitter parsers: {e}")
@@ -547,33 +565,107 @@ class EnhancedCodeAnalyzer:
             raise
 
     def _analyze_javascript_file(self, content: str, file_path: Path) -> Dict[str, Any]:
-        """Analyze a JavaScript file."""
-        # Basic JavaScript analysis using regex patterns
+        """Analyze a JavaScript/TypeScript file using tree-sitter with regex fallback."""
+        parser = self.language_parsers.get(LanguageType.JAVASCRIPT)
+        if parser and TREE_SITTER_AVAILABLE:
+            return self._analyze_with_tree_sitter(content, parser, file_path)
+        return self._analyze_js_regex_fallback(content)
+
+    def _analyze_java_file(self, content: str, file_path: Path) -> Dict[str, Any]:
+        """Analyze a Java file using tree-sitter with regex fallback."""
+        parser = self.language_parsers.get(LanguageType.JAVA)
+        if parser and TREE_SITTER_AVAILABLE:
+            return self._analyze_with_tree_sitter(content, parser, file_path)
+        return self._analyze_java_regex_fallback(content)
+
+    def _analyze_with_tree_sitter(self, content: str, parser, file_path: Path) -> Dict[str, Any]:
+        """Parse source with tree-sitter and extract functions, classes, and imports."""
+        tree = parser.parse(bytes(content, "utf-8"))
+        root = tree.root_node
+
+        functions = []
+        classes = []
+        imports = []
+
+        def walk(node):
+            if node.type in ("function_declaration", "method_definition", "arrow_function",
+                             "function_expression", "generator_function", "constructor"):
+                name = self._get_ts_child_text(node, "name", content) or "<anonymous>"
+                functions.append({
+                    "name": name,
+                    "line": node.start_point[0] + 1,
+                    "end_line": node.end_point[0] + 1,
+                    "type": node.type,
+                })
+            elif node.type in ("class_declaration", "class_expression"):
+                name = self._get_ts_child_text(node, "name", content) or "<anonymous>"
+                methods = []
+                body = node.child_by_field_name("body")
+                if body:
+                    for child in body.children:
+                        if child.type in ("method_definition", "constructor"):
+                            mname = self._get_ts_child_text(child, "name", content) or "<anonymous>"
+                            methods.append(mname)
+                classes.append({
+                    "name": name,
+                    "line": node.start_point[0] + 1,
+                    "methods": methods,
+                })
+            elif node.type in ("import_statement", "import_declaration", "lexical_declaration"):
+                text = content[node.start_byte:node.end_byte].strip()
+                imports.append(text)
+            elif node.type == "expression_statement":
+                text = content[node.start_byte:node.end_byte].strip()
+                if text.startswith("import ") or text.startswith("const ") or text.startswith("require("):
+                    imports.append(text)
+
+            for child in node.children:
+                walk(child)
+
+        walk(root)
+
+        return {
+            "functions": functions,
+            "classes": classes,
+            "imports": imports,
+            "error_patterns": [],
+        }
+
+    @staticmethod
+    def _get_ts_child_text(node, field_name: str, content: str) -> str:
+        """Get text of a named child field from a tree-sitter node."""
+        child = node.child_by_field_name(field_name)
+        if child:
+            return content[child.start_byte:child.end_byte]
+        for c in node.children:
+            if c.type == "identifier" or c.type == "property_identifier":
+                return content[c.start_byte:c.end_byte]
+        return ""
+
+    def _analyze_js_regex_fallback(self, content: str) -> Dict[str, Any]:
+        """Regex-based fallback for JavaScript analysis."""
         functions = self._extract_js_functions(content)
         classes = self._extract_js_classes(content)
         imports = self._extract_js_imports(content)
         error_patterns = self._detect_js_error_patterns(content)
-
         return {
-            'functions': functions,
-            'classes': classes,
-            'imports': imports,
-            'error_patterns': error_patterns
+            "functions": functions,
+            "classes": classes,
+            "imports": imports,
+            "error_patterns": error_patterns,
         }
 
-    def _analyze_java_file(self, content: str, file_path: Path) -> Dict[str, Any]:
-        """Analyze a Java file."""
-        # Basic Java analysis using regex patterns
+    def _analyze_java_regex_fallback(self, content: str) -> Dict[str, Any]:
+        """Regex-based fallback for Java analysis."""
         functions = self._extract_java_methods(content)
         classes = self._extract_java_classes(content)
         imports = self._extract_java_imports(content)
         error_patterns = self._detect_java_error_patterns(content)
-
         return {
-            'functions': functions,
-            'classes': classes,
-            'imports': imports,
-            'error_patterns': error_patterns
+            "functions": functions,
+            "classes": classes,
+            "imports": imports,
+            "error_patterns": error_patterns,
         }
 
     def _extract_function_info(self, node: ast.FunctionDef, content: str) -> FunctionInfo:

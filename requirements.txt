@@ -27,7 +27,6 @@ langchain-groq>=0.0.1
 openai>=1.0.0
 
 # Language support
-googletrans>=4.0.0rc1
 
 # Utilities
 python-dotenv>=1.0.0
@@ -36,3 +35,7 @@ rich>=14.1.0
 
 # Subtitle generation
 pysrt>=1.1.1
+
+# Tree-sitter language grammars for JS/Java analysis
+tree-sitter-javascript>=0.23.0
+tree-sitter-java>=0.23.0

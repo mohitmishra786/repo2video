@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from ..core.data_structures import Storyboard
 from pathlib import Path
 from dotenv import load_dotenv
-from googletrans import Translator
 
 # Load environment variables
 load_dotenv()
@@ -73,8 +72,7 @@ class AudioGenerator:
             "use_speaker_boost": True
         }
 
-        # Initialize translator for multi-language support
-        self.translator = Translator()
+        # Supported languages for narration
         self.supported_languages = {
             'en': 'English',
             'es': 'Spanish',
@@ -94,28 +92,6 @@ class AudioGenerator:
         # Background music settings
         self.background_music_enabled = False
         self.background_music_volume = -20  # dB
-
-    def _translate_text(self, text: str, target_language: str) -> str:
-        """
-        Translate text to the target language.
-
-        Args:
-            text: Text to translate
-            target_language: Target language code
-
-        Returns:
-            Translated text
-        """
-        if target_language == 'en':
-            return text  # No translation needed for English
-
-        try:
-            translation = self.translator.translate(text, dest=target_language)
-            logger.info(f"Translated text from English to {target_language}")
-            return translation.text
-        except Exception as e:
-            logger.error(f"Translation failed, using original text: {e}")
-            return text
 
     def generate_audio(self, text: str, output_path: str, voice_id: Optional[str] = None, language: str = 'en',
                       voice_type: str = 'female', add_background_music: bool = False) -> bool:
@@ -156,9 +132,7 @@ class AudioGenerator:
     def _generate_elevenlabs_audio(self, text: str, output_path: str, voice_id: Optional[str] = None,
                                     language: str = 'en', voice_type: str = 'female',
                                     add_background_music: bool = False) -> bool:
-        """Generate audio using ElevenLabs API."""
-        # Translate text if needed
-        translated_text = self._translate_text(text, language)
+        """Generate audio using ElevenLabs API (no translation -- ElevenLabs handles language natively)."""
 
         # Use voice type if specified
         if voice_type in self.voice_options:
@@ -176,12 +150,12 @@ class AudioGenerator:
         }
 
         data = {
-            "text": translated_text,
+            "text": text,
             "model_id": "eleven_multilingual_v2",
             "voice_settings": self.default_settings
         }
 
-        logger.info(f"Generating ElevenLabs audio: {translated_text[:50]}... (Language: {language}, Voice: {voice_type})")
+        logger.info(f"Generating ElevenLabs audio: {text[:50]}... (Language: {language}, Voice: {voice_type})")
 
         response = requests.post(url, json=data, headers=headers)
 
