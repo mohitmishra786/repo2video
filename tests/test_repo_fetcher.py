@@ -1,6 +1,5 @@
 """Unit tests for repo_fetcher module."""
 
-import re
 import pytest
 from repo_fetcher import RepoFetcher
 

@@ -9,12 +9,10 @@ import re
 import ast
 import markdown
 from typing import Dict, List, Optional, Tuple, Union
-from github import Github, GithubException
+from github import Github
 from github.Repository import Repository
-from github.ContentFile import ContentFile
 import requests
 import logging
-from urllib.parse import urlparse
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -41,18 +39,18 @@ class RepoFetcher:
         self.bitbucket_token = bitbucket_token
         self.rate_limit = self.github.get_rate_limit()
         self.max_repo_size_mb = max_repo_size_mb if max_repo_size_mb is not None else self.MAX_REPO_SIZE_MB
-        
+
         # Initialize GitLab and Bitbucket clients only when needed
         self._gitlab_client = None
         self._bitbucket_client = None
-    
+
     def validate_repo_url(self, url: str) -> Tuple[bool, str, str, str]:
         """
         Validate if the URL is a valid repository URL and identify the platform.
-        
+
         Args:
             url: The repository URL
-            
+
         Returns:
             Tuple of (is_valid, platform, owner, repo_name)
         """
@@ -60,7 +58,7 @@ class RepoFetcher:
         github_pattern = r'https://github\.com/([^/]+)/([^/]+)'
         gitlab_pattern = r'https://gitlab\.com/([^/]+)/([^/]+)'
         bitbucket_pattern = r'https://bitbucket\.org/([^/]+)/([^/]+)'
-        
+
         for pattern, platform in [(github_pattern, 'github'), (gitlab_pattern, 'gitlab'), (bitbucket_pattern, 'bitbucket')]:
             match = re.match(pattern, url)
             if match:
@@ -68,24 +66,24 @@ class RepoFetcher:
                 # Remove .git suffix if present
                 repo_name = repo_name.replace('.git', '')
                 return True, platform, owner, repo_name
-        
+
         return False, "", "", ""
-    
+
     def fetch_repo(self, url: str) -> Optional[Union[Repository, dict]]:
         """
         Fetch repository information from GitHub, GitLab, or Bitbucket.
-        
+
         Args:
             url: Repository URL
-            
+
         Returns:
             Repository object (GitHub) or dict (GitLab/Bitbucket) or None if failed
         """
         is_valid, platform, owner, repo_name = self.validate_repo_url(url)
-        
+
         if not is_valid:
             raise ValueError("Invalid repository URL")
-        
+
         try:
             if platform == 'github':
                 repo = self.github.get_repo(f"{owner}/{repo_name}")
@@ -133,25 +131,25 @@ class RepoFetcher:
                 raise ValueError(f"Rate limit exceeded for {platform}. Please provide a token.")
             else:
                 raise ValueError(f"Error fetching repository: {str(e)}")
-    
+
     def get_repo_contents(self, repo: Union[Repository, dict], path: str = "") -> List[Dict]:
         """
         Recursively fetch repository contents from GitHub, GitLab, or Bitbucket.
-        
+
         Args:
             repo: GitHub repository object or dict with platform info
             path: Path within the repository
-            
+
         Returns:
             List of file information dictionaries
         """
         contents = []
-        
+
         try:
             if isinstance(repo, Repository):
                 # GitHub repository
                 items = repo.get_contents(path)
-                
+
                 for item in items:
                     if item.type == "dir":
                         # Recursively get contents of subdirectories
@@ -165,7 +163,7 @@ class RepoFetcher:
                             if item.size < 1024 * 1024:  # Only fetch small files
                                 content = item.decoded_content.decode('utf-8')
                                 file_content = self._sanitize_sensitive_content(content, item.name)
-                            
+
                             contents.append({
                                 'name': item.name,
                                 'path': item.path,
@@ -176,12 +174,12 @@ class RepoFetcher:
             elif isinstance(repo, dict):
                 # GitLab or Bitbucket repository
                 platform = repo.get('platform')
-                
+
                 if platform == 'gitlab':
                     project = repo.get('project')
                     # Use GitLab API to get repository tree
                     tree = project.repository_tree(recursive=True, path=path)
-                    
+
                     for item in tree:
                         if item['type'] == 'blob':
                             if self._is_relevant_file(item['name']):
@@ -191,7 +189,7 @@ class RepoFetcher:
                                     file = project.files.get(file_path=item['path'], ref='master')
                                     content = file.decode()
                                     file_content = self._sanitize_sensitive_content(content, item['name'])
-                                
+
                                 contents.append({
                                     'name': item['name'],
                                     'path': item['path'],
@@ -204,14 +202,14 @@ class RepoFetcher:
                     repo_data = repo.get('repo_data')
                     owner = repo.get('owner')
                     repo_name = repo.get('repo_name')
-                    
+
                     # Construct API URL for contents
                     api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo_name}/src/master/{path}"
-                    
+
                     response = requests.get(api_url, timeout=self.REQUEST_TIMEOUT)
                     if response.status_code == 200:
                         data = response.json()
-                        
+
                         if 'values' in data:  # Directory listing
                             for item in data['values']:
                                 if item['type'] == 'commit_file':
@@ -224,7 +222,7 @@ class RepoFetcher:
                                             if file_response.status_code == 200:
                                                 content = file_response.text
                                                 file_content = self._sanitize_sensitive_content(content, item['path'].split('/')[-1])
-                                        
+
                                         contents.append({
                                             'name': item['path'].split('/')[-1],
                                             'path': item['path'],
@@ -234,16 +232,16 @@ class RepoFetcher:
                                         })
         except Exception as e:
             logger.warning(f"Error fetching repository contents: {e}")
-        
+
         return contents
-    
+
     def _is_relevant_file(self, filename: str) -> bool:
         """
         Check if a file is relevant for analysis.
-        
+
         Args:
             filename: Name of the file
-            
+
         Returns:
             True if file should be included in analysis
         """
@@ -253,9 +251,9 @@ class RepoFetcher:
             '.html', '.css', '.scss', '.sass', '.rb', '.go', '.rs',
             '.php', '.swift', '.kt', '.scala', '.r', '.m', '.sh'
         }
-        
+
         return any(filename.endswith(ext) for ext in relevant_extensions) or filename in ['README', 'LICENSE']
-    
+
     def _sanitize_sensitive_content(self, content: str, filename: str) -> str:
         """
         Sanitize sensitive content from file content.
@@ -287,14 +285,14 @@ class RepoFetcher:
             sanitized_content = re.sub(pattern, replacement, sanitized_content, flags=re.IGNORECASE)
 
         return sanitized_content
-    
+
     def analyze_repo(self, repo: Repository) -> Dict:
         """
         Analyze repository structure and content.
-        
+
         Args:
             repo: GitHub repository object
-            
+
         Returns:
             Dictionary containing analysis results
         """
@@ -311,33 +309,33 @@ class RepoFetcher:
             'main_files': [],
             'structure': {}
         }
-        
+
         # Fetch repository contents
         contents = self.get_repo_contents(repo)
         analysis['files'] = contents
-        
+
         # Find README
         for file_info in contents:
             if file_info['name'].lower() in ['readme.md', 'readme.txt', 'readme.rst']:
                 analysis['readme'] = file_info
                 break
-        
+
         # Identify main code files (limit to top 10)
         code_files = [f for f in contents if f['content'] and self._is_code_file(f['name'])]
         analysis['main_files'] = code_files[:10]
-        
+
         # Analyze repository structure
         analysis['structure'] = self._analyze_structure(contents)
-        
+
         return analysis
-    
+
     def _is_code_file(self, filename: str) -> bool:
         """
         Check if a file is a code file.
-        
+
         Args:
             filename: Name of the file
-            
+
         Returns:
             True if file is a code file
         """
@@ -346,16 +344,16 @@ class RepoFetcher:
             '.rb', '.go', '.rs', '.php', '.swift', '.kt', '.scala',
             '.r', '.m', '.sh', '.pl', '.lua', '.dart'
         }
-        
+
         return any(filename.endswith(ext) for ext in code_extensions)
-    
+
     def _analyze_structure(self, contents: List[Dict]) -> Dict:
         """
         Analyze the structure of repository contents.
-        
+
         Args:
             contents: List of file information dictionaries
-            
+
         Returns:
             Dictionary containing structure analysis
         """
@@ -367,11 +365,11 @@ class RepoFetcher:
             'languages': {},
             'directories': set()
         }
-        
+
         for file_info in contents:
             filename = file_info['name']
             path = file_info['path']
-            
+
             # Count file types
             if self._is_code_file(filename):
                 structure['code_files'] += 1
@@ -381,28 +379,28 @@ class RepoFetcher:
                 structure['doc_files'] += 1
             elif filename.endswith(('.yml', '.yaml', '.json', '.xml', '.toml')):
                 structure['config_files'] += 1
-            
+
             # Track directories
             if '/' in path:
                 dir_path = '/'.join(path.split('/')[:-1])
                 structure['directories'].add(dir_path)
-        
+
         structure['directories'] = list(structure['directories'])
         return structure
-    
+
     def parse_readme(self, readme_content: str) -> Dict:
         """
         Parse README content to extract tutorial-like sections.
-        
+
         Args:
             readme_content: Content of the README file
-            
+
         Returns:
             Dictionary containing parsed README sections
         """
         # Convert markdown to HTML for easier parsing
         html = markdown.markdown(readme_content)
-        
+
         # Extract sections (this is a simplified approach)
         sections = {
             'title': '',
@@ -412,23 +410,23 @@ class RepoFetcher:
             'examples': '',
             'code_blocks': []
         }
-        
+
         # Extract code blocks
         code_block_pattern = r'```[\w]*\n(.*?)\n```'
         code_blocks = re.findall(code_block_pattern, readme_content, re.DOTALL)
         sections['code_blocks'] = code_blocks
-        
+
         # Extract title (first heading)
         title_pattern = r'^#\s+(.+)$'
         title_match = re.search(title_pattern, readme_content, re.MULTILINE)
         if title_match:
             sections['title'] = title_match.group(1)
-        
+
         # Extract description (text after title, before first section)
         lines = readme_content.split('\n')
         description_lines = []
         in_description = False
-        
+
         for line in lines:
             if line.startswith('#') and not in_description:
                 in_description = True
@@ -437,18 +435,18 @@ class RepoFetcher:
                 break
             elif in_description and line.strip():
                 description_lines.append(line)
-        
+
         sections['description'] = '\n'.join(description_lines)
-        
+
         return sections
-    
+
     def analyze_python_code(self, code_content: str) -> Dict:
         """
         Analyze Python code using AST.
-        
+
         Args:
             code_content: Python code content
-            
+
         Returns:
             Dictionary containing code analysis
         """
@@ -461,7 +459,7 @@ class RepoFetcher:
                 'variables': [],
                 'errors': []
             }
-            
+
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
@@ -486,7 +484,7 @@ class RepoFetcher:
                     for target in node.targets:
                         if isinstance(target, ast.Name):
                             analysis['variables'].append(target.id)
-            
+
             return analysis
         except SyntaxError as e:
             return {
@@ -496,11 +494,11 @@ class RepoFetcher:
                 'variables': [],
                 'errors': [f"Syntax error at line {e.lineno}: {e.text}"]
             }
-    
+
     def get_rate_limit_info(self) -> Dict:
         """
         Get current GitHub API rate limit information.
-        
+
         Returns:
             Dictionary containing rate limit info
         """
@@ -508,4 +506,4 @@ class RepoFetcher:
             'limit': self.rate_limit.rate.limit,
             'remaining': self.rate_limit.rate.remaining,
             'reset_time': self.rate_limit.rate.reset
-        } 
+        }

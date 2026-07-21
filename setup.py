@@ -5,10 +5,8 @@ Setup script for # repo2video
 This script helps users install and configure the # repo2video application.
 """
 
-import os
 import sys
 import subprocess
-import platform
 from pathlib import Path
 
 
@@ -25,7 +23,7 @@ def check_python_version():
 def install_dependencies():
     """Install required dependencies."""
     print("📦 Installing dependencies...")
-    
+
     try:
         # Install from requirements.txt
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
@@ -39,7 +37,7 @@ def install_dependencies():
 def check_system_requirements():
     """Check system requirements."""
     print("🔍 Checking system requirements...")
-    
+
     # Check available disk space
     try:
         import shutil
@@ -51,7 +49,7 @@ def check_system_requirements():
             print(f"✅ Disk space: {free_gb} GB free")
     except Exception as e:
         print(f"⚠️  Could not check disk space: {e}")
-    
+
     # Check internet connectivity
     try:
         import urllib.request
@@ -59,7 +57,7 @@ def check_system_requirements():
         print("✅ Internet connection available")
     except Exception:
         print("⚠️  Warning: No internet connection detected. Required for TTS and GitHub API.")
-    
+
     return True
 
 
@@ -93,7 +91,7 @@ PREMIUM_LICENSE_KEY=
 GITHUB_ACTIONS_ENABLED=False
 GITHUB_ACTIONS_WEBHOOK_URL=
 """
-    
+
     config_path = Path("config.env")
     if not config_path.exists():
         with open(config_path, "w") as f:
@@ -107,17 +105,17 @@ GITHUB_ACTIONS_WEBHOOK_URL=
 def create_directories():
     """Create necessary directories."""
     directories = ["output", "temp", "logs"]
-    
+
     for directory in directories:
         Path(directory).mkdir(exist_ok=True)
-    
+
     print("✅ Created necessary directories")
 
 
 def test_installation():
     """Test the installation."""
     print("🧪 Testing installation...")
-    
+
     try:
         # Test imports
         import streamlit
@@ -126,18 +124,18 @@ def test_installation():
         import moviepy
         import markdown
         print("✅ All modules imported successfully")
-        
+
         # Test Streamlit
-        result = subprocess.run([sys.executable, "-m", "streamlit", "--version"], 
+        result = subprocess.run([sys.executable, "-m", "streamlit", "--version"],
                               capture_output=True, text=True)
         if result.returncode == 0:
             print(f"✅ Streamlit version: {result.stdout.strip()}")
         else:
             print("❌ Streamlit test failed")
             return False
-            
+
         return True
-        
+
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return False
@@ -148,7 +146,7 @@ def show_next_steps():
     print("\n" + "="*50)
     print("🎉 Installation complete!")
     print("="*50)
-    
+
     print("\n📋 Next steps:")
     print("1. Run the application:")
     print("   streamlit run app.py")
@@ -156,27 +154,27 @@ def show_next_steps():
     print("\n3. Enter a repository URL to get started")
     print("\n4. Try an example repository:")
     print("   https://github.com/scikit-learn/scikit-learn")
-    
+
     print("\n📚 Documentation:")
     print("- README.md: Complete documentation")
     print("- GitHub Issues: Report bugs and request features")
-    
+
     print("\n🔧 Configuration:")
     print("- Edit config.env for custom settings")
     print("- Add tokens for private repositories")
     print("- Enable premium features in config.env")
-    
+
     print("\n💡 Tips:")
     print("- Start with small repositories for faster processing")
     print("- Use 720p quality for faster video generation")
     print("- Ensure stable internet connection for TTS services")
-    
+
     print("\n💰 Premium Features:")
     print("- HD video rendering (1080p/4K)")
     print("- Advanced AI narration voices")
     print("- Priority processing")
     print("- Contact us for enterprise licensing")
-    
+
     print("\n🤖 GitHub Actions:")
     print("- Set GITHUB_ACTIONS_ENABLED=True in config.env")
     print("- Add GITHUB_ACTIONS_WEBHOOK_URL for auto-video on push")
@@ -187,32 +185,32 @@ def main():
     """Main setup function."""
     print("🎥 # repo2video Setup")
     print("="*30)
-    
+
     # Check Python version
     if not check_python_version():
         sys.exit(1)
-    
+
     # Check system requirements
     check_system_requirements()
-    
+
     # Install dependencies
     if not install_dependencies():
         sys.exit(1)
-    
+
     # Create directories
     create_directories()
-    
+
     # Create config file
     create_config_file()
-    
+
     # Test installation
     if not test_installation():
         print("❌ Installation test failed")
         sys.exit(1)
-    
+
     # Show next steps
     show_next_steps()
 
 
 if __name__ == "__main__":
-    main() 
+    main()
