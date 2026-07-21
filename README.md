@@ -18,7 +18,9 @@ Paste any GitHub URL → Get a 1080p narrated code walkthrough video in minutes.
 - **AI Storyboard Generation** — Automatically plan video scenes from code structure
 - **Scene Rendering** — MoviePy-based video scene generation with code display and narration
 - **Text-to-Speech** — Automatic narration via ElevenLabs (or gTTS fallback)
-- **Video Merging** — Combine scenes into a single polished output with transitions
+- **Progress feedback** — Per-scene progress bar during rendering
+- **WebM/GIF support** — Output in MP4, WebM, or GIF formats
+- **Subtitle export** — Automatic SRT subtitle generation from narration
 
 ## How It Works
 
