@@ -79,9 +79,21 @@ class RuntimeStateCapture:
             return self._simulate_execution_trace(code_content, language)
 
     def _capture_python_execution(self, code_content: str) -> ExecutionTrace:
-        """Capture Python code execution using E2B."""
+        """Capture Python code execution using E2B sandbox.
+
+        Safety: Only executes code if E2B sandbox is available and configured.
+        The sandbox provides network isolation and process limits.
+        Code size is limited and dangerous imports are warned against.
+        """
+        MAX_CODE_SIZE_BYTES = 1024 * 1024  # 1MB
+
         try:
-            logger.info("Capturing Python execution with E2B")
+            code_bytes = code_content.encode("utf-8")
+            if len(code_bytes) > MAX_CODE_SIZE_BYTES:
+                logger.error(f"Code too large for E2B execution: {len(code_bytes)} bytes (max {MAX_CODE_SIZE_BYTES})")
+                return self._simulate_execution_trace(code_content, "python")
+
+            logger.info("Capturing Python execution with E2B sandbox (network-isolated)")
 
             # Create instrumented code
             instrumented_code = self._instrument_python_code(code_content)
