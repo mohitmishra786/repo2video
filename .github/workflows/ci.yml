@@ -7,6 +7,29 @@ on:
     branches: [main]
 
 jobs:
+  # Gate 1: syntax/compile check on every tracked Python file.
+  # Fast, dependency-free; catches unterminated strings etc. before installs run.
+  compile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile-check all tracked Python files
+        run: |
+          set -e
+          files=$(git ls-files '*.py')
+          if [ -z "$files" ]; then
+            echo "No Python files found"
+            exit 1
+          fi
+          echo "$files" | xargs python -m py_compile
+          echo "py_compile OK for all tracked .py files"
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -67,3 +90,26 @@ jobs:
         run: |
           python -c "from repo_fetcher import RepoFetcher; print('repo_fetcher OK')"
           python -c "from advanced_animation.core.data_structures import Storyboard; print('data_structures OK')"
+
+  # Gate 4: dependency vulnerability scan.
+  # Warn-only (continue-on-error) until the baseline audit lands; flip to
+  # blocking once known-good pins are established.
+  pip-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: Audit dependencies (warn-only)
+        run: |
+          pip-audit -r requirements.txt --desc || true
