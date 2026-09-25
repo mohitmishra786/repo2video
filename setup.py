@@ -117,12 +117,14 @@ def test_installation():
     print("🧪 Testing installation...")
 
     try:
-        # Test imports
+        # Test imports (the imports themselves are the availability check)
         import streamlit
         import PyGithub
         import gtts
         import moviepy
         import markdown
+        _available = (streamlit, PyGithub, gtts, moviepy, markdown)
+        del _available
         print("✅ All modules imported successfully")
 
         # Test Streamlit

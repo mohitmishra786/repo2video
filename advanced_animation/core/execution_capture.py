@@ -13,10 +13,10 @@ from typing import Dict, List, Any
 import ast
 from dotenv import load_dotenv
 
+from .data_structures import ExecutionState, ExecutionTrace
+
 # Load environment variables
 load_dotenv()
-
-from .data_structures import ExecutionState, ExecutionTrace
 
 # E2B imports
 try:
@@ -167,10 +167,9 @@ class RuntimeStateCapture:
     def _instrument_python_code(self, code_content: str) -> str:
         """Add instrumentation to Python code for state capture."""
         try:
-            # Parse the code
-            tree = ast.parse(code_content)
-
-            # Add imports for instrumentation
+            # Parse the code (validation only — a syntax error falls through
+            # to the handler below)
+            ast.parse(code_content)
             imports = [
                 "import sys",
                 "import time",
@@ -237,7 +236,7 @@ def capture_state():
                 state_file = sandbox.filesystem.read("/tmp/execution_state.json")
                 state_data = json.loads(state_file)
                 return state_data.get('variables', {})
-            except:
+            except Exception:
                 # Fallback: try to get variables from debugger
                 return self._get_variables_from_debugger(sandbox)
 
@@ -264,7 +263,7 @@ def capture_state():
                 state_file = sandbox.filesystem.read("/tmp/execution_state.json")
                 state_data = json.loads(state_file)
                 return state_data.get('call_stack', [])
-            except:
+            except Exception:
                 return ["main()"]
 
         except Exception as e:
@@ -278,7 +277,7 @@ def capture_state():
                 state_file = sandbox.filesystem.read("/tmp/execution_state.json")
                 state_data = json.loads(state_file)
                 return state_data.get('line_number', 0)
-            except:
+            except Exception:
                 return 0
 
         except Exception as e:
@@ -355,10 +354,6 @@ def capture_state():
 
             # Parse the code
             tree = ast.parse(code_content)
-
-            # Extract functions and classes
-            functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-            classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
 
             # Simulate execution steps
             step = 0

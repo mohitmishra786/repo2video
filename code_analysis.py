@@ -4,13 +4,9 @@ Enhanced Code Analysis Module
 
 from __future__ import annotations
 import ast
-import subprocess
-import tempfile
 import os
-import sys
-import json
 import logging
-from typing import Dict, List, Optional, Tuple, Set, Any, Union
+from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 import re
 from dataclasses import dataclass
@@ -32,12 +28,16 @@ except ImportError:
 # Tree-sitter language grammars (optional, install separately)
 try:
     import tree_sitter_javascript as tsjs
+    _TSJS_PROBE = tsjs
+    del _TSJS_PROBE
     TS_JS_AVAILABLE = True
 except ImportError:
     TS_JS_AVAILABLE = False
 
 try:
     import tree_sitter_java as tsjava
+    _TSJAVA_PROBE = tsjava
+    del _TSJAVA_PROBE
     TS_JAVA_AVAILABLE = True
 except ImportError:
     TS_JAVA_AVAILABLE = False
@@ -47,12 +47,16 @@ try:
     import pycallgraph2
     from pycallgraph2 import PyCallGraph
     from pycallgraph2.output import GraphvizOutput
+    _CALLGRAPH_PROBE = (pycallgraph2, PyCallGraph, GraphvizOutput)
+    del _CALLGRAPH_PROBE
     CALLGRAPH_AVAILABLE = True
 except ImportError:
     CALLGRAPH_AVAILABLE = False
 
 try:
     import pipdeptree
+    _DEPTREE_PROBE = pipdeptree
+    del _DEPTREE_PROBE
     DEPTREE_AVAILABLE = True
 except ImportError:
     DEPTREE_AVAILABLE = False
@@ -671,8 +675,6 @@ class EnhancedCodeAnalyzer:
 
     def _extract_function_info(self, node: ast.FunctionDef, content: str) -> FunctionInfo:
         """Extract detailed information about a function."""
-        lines = content.splitlines()
-
         # Get function calls within this function
         calls = []
         for child in ast.walk(node):

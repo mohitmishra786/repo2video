@@ -67,17 +67,12 @@ select = ["E", "F", "W"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
+# sys.path bootstrap + deferred optional imports run before stdlib imports
 "test_real_repository.py" = ["E402"]
 "app.py" = ["E402"]
 "__init__.py" = ["E402", "F401"]
-"execution_capture.py" = ["E402", "F841", "E722"]
-"manim_scene.py" = ["F841", "F403", "F405"]
-"storyboard_generator.py" = ["F841", "E402", "F401", "F811"]
-"visual_metaphors.py" = ["F401", "F403"]
-"video_merger.py" = ["F841", "F401"]
-"logging_config.py" = ["F401"]
-"audio_generator.py" = ["F401"]
-"data_structures.py" = ["F401"]
-"code_analysis.py" = ["F841", "F401"]
-"repo_fetcher.py" = ["F841", "F401"]
-"setup.py" = ["F841", "F401"]
+# Manim's API is star-import oriented (`from manim import *` then VGroup,
+# Scene, Text, ...); converting ~50 usages across the scene builders would
+# be high-risk churn for zero behavioral gain.
+"advanced_animation/rendering/manim_scene.py" = ["F403", "F405"]
+"advanced_animation/visualizations/visual_metaphors.py" = ["F403"]

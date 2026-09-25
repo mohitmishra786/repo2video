@@ -8,7 +8,7 @@ for creating voice narration for video scenes.
 import os
 import logging
 import requests
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..core.data_structures import Storyboard
 from pathlib import Path
@@ -25,6 +25,8 @@ try:
     import pydub
     from pydub import AudioSegment
     from pydub.generators import WhiteNoise
+    _ADVANCED_AUDIO_MODULES = (pysrt, pydub, AudioSegment, WhiteNoise)
+    del _ADVANCED_AUDIO_MODULES
     ADVANCED_AUDIO_AVAILABLE = True
 except ImportError:
     ADVANCED_AUDIO_AVAILABLE = False
