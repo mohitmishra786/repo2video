@@ -9,6 +9,7 @@ to generate animations from actual code.
 import os
 import sys
 import logging
+from pathlib import Path
 import argparse
 
 # Add current directory to path
@@ -31,7 +32,7 @@ def fetch_repository(repo_url: str) -> str:
     """Wrapper function to fetch a repository."""
     # Create a temporary directory for the repository
     temp_dir = tempfile.mkdtemp(prefix="repo_")
-
+    
     # Clone the repository using git
     try:
         subprocess.run(["git", "clone", repo_url, temp_dir], check=True, capture_output=True)
@@ -44,109 +45,109 @@ def analyze_repository(repo_path: str):
     analyzer = EnhancedCodeAnalyzer(repo_path)
     return analyzer.analyze_project()
 
-def analyze_github_repo(repo_url: str, output_dir: str = "real_repo_output", theme: str = "light",
-                       length: str = "medium", focus: str = "all", language: str = "en",
+def analyze_github_repo(repo_url: str, output_dir: str = "real_repo_output", theme: str = "light", 
+                       length: str = "medium", focus: str = "all", language: str = "en", 
                        quality: str = "1080p", mobile: bool = False):
     """Analyze a GitHub repository and create animations."""
     print(f"Testing Real Repository: {repo_url}")
     print("=" * 60)
-
+    
     # Log customization options
-    print("Customization options:")
+    print(f"Customization options:")
     print(f"  Theme: {theme}")
     print(f"  Length: {length}")
     print(f"  Focus: {focus}")
     print(f"  Language: {language}")
     print(f"  Quality: {quality}")
     print(f"  Mobile optimized: {mobile}")
-
+    
     try:
         # Initialize the advanced animation system
         system = AdvancedAnimationSystem(output_dir=output_dir)
-
+        
         # Fetch and analyze the repository
-        print(" Fetching repository...")
+        print("📥 Fetching repository...")
         repo_path = fetch_repository(repo_url)
-        print(f" Repository fetched to: {repo_path}")
-
-        print("\n Analyzing repository...")
+        print(f"✅ Repository fetched to: {repo_path}")
+        
+        print("\n🔍 Analyzing repository...")
         code_analysis = analyze_repository(repo_path)
-        print(f" Analysis complete: {len(code_analysis.get('files', []))} files analyzed")
-
+        print(f"✅ Analysis complete: {len(code_analysis.get('files', []))} files analyzed")
+        
         # Show analysis summary
-        print("\n Analysis Summary:")
+        print("\n📊 Analysis Summary:")
         print(f"   Total files: {len(code_analysis.get('files', []))}")
         print(f"   Languages: {code_analysis.get('languages', [])}")
         print(f"   Total lines: {code_analysis.get('total_lines', 0)}")
-
+        
         # Show detailed file analysis
         files = code_analysis.get('files', {})
         if files:
-            print(f"\n Detailed File Analysis ({len(files)} files):")
-
+            print(f"\n📁 Detailed File Analysis ({len(files)} files):")
+            
             successful_files = 0
             failed_files = 0
-
+            
             for i, (file_path, file_info) in enumerate(files.items()):
                 language = file_info.get('language', 'Unknown')
                 lines = file_info.get('lines', 0)
                 functions = len(file_info.get('functions', []))
                 classes = len(file_info.get('classes', []))
                 has_error = 'analysis_error' in file_info
-
+                
                 if has_error:
                     failed_files += 1
-                    print(f"    {i+1}. {file_path} ({language}) - {lines} lines, {functions} functions, {classes} classes")
+                    print(f"   ❌ {i+1}. {file_path} ({language}) - {lines} lines, {functions} functions, {classes} classes")
                     print(f"      Error: {file_info.get('analysis_error', 'Unknown error')}")
                 else:
                     successful_files += 1
-                    print(f"    {i+1}. {file_path} ({language}) - {lines} lines, {functions} functions, {classes} classes")
-
-            print("\n Analysis Results:")
-            print(f"    Successfully analyzed: {successful_files} files")
-            print(f"    Failed to analyze: {failed_files} files")
-            print(f"    Success rate: {(successful_files/len(files)*100):.1f}%")
-
+                    print(f"   ✅ {i+1}. {file_path} ({language}) - {lines} lines, {functions} functions, {classes} classes")
+            
+            print(f"\n📈 Analysis Results:")
+            print(f"   ✅ Successfully analyzed: {successful_files} files")
+            print(f"   ❌ Failed to analyze: {failed_files} files")
+            print(f"   📊 Success rate: {(successful_files/len(files)*100):.1f}%")
+        
         # Generate storyboard
-        print("\n Generating storyboard...")
+        print("\n🎬 Generating storyboard...")
         storyboard = system.storyboard_generator.generate_storyboard(code_analysis)
-        print(f" Generated storyboard with {len(storyboard.scenes)} scenes")
+        print(f"✅ Generated storyboard with {len(storyboard.scenes)} scenes")
         print(f"   Total duration: {storyboard.total_duration}s")
-
+        
         # Show scene details
-        print("\n Scenes:")
+        print("\n🎭 Scenes:")
         for i, scene in enumerate(storyboard.scenes):
             print(f"   Scene {i+1}: {scene.concept} ({scene.duration}s)")
-
+        
         # Save storyboard
         storyboard_path = system.save_storyboard(storyboard, f"{repo_url.split('/')[-1]}_storyboard.json")
-        print(f"\n Saved storyboard to: {storyboard_path}")
-
+        print(f"\n💾 Saved storyboard to: {storyboard_path}")
+        
         # Create animations with audio generation
-        print("\n Creating animations with audio...")
+        print("\n🎥 Creating animations with audio...")
         print("   This may take several minutes...")
-
+        
         try:
             # Use the full animation system which includes audio generation
             final_video_path = system.create_animation_from_code(code_analysis)
-            print(f"    Complete animation created: {final_video_path}")
+            print(f"   ✅ Complete animation created: {final_video_path}")
             return True
         except Exception as e:
-            print(f"    Animation creation failed: {e}")
+            print(f"   ❌ Animation creation failed: {e}")
             import traceback
             traceback.print_exc()
             return False
-
-        print("\n Animation creation completed!")
-        print(f" Check the '{output_dir}' directory for:")
+        
+        print(f"\n🎉 Animation creation completed!")
+        print(f"📁 Check the '{output_dir}' directory for:")
         print(f"   - {repo_url.split('/')[-1]}_storyboard.json (storyboard data)")
-        print("   - Generated individual scene videos")
-        print("   - final_video/ (merged comprehensive video)")
-
+        print(f"   - Generated individual scene videos")
+        print(f"   - final_video/ (merged comprehensive video)")
+        
         return True
-
+        
     except Exception as e:
-        print(f" Error processing repository: {e}")
+        print(f"❌ Error processing repository: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -155,7 +156,7 @@ def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Test ManimGL system with real repositories")
     parser.add_argument("repo_url", help="GitHub repository URL (e.g., https://github.com/user/repo)")
-    parser.add_argument("--output", "-o", default="real_repo_output",
+    parser.add_argument("--output", "-o", default="real_repo_output", 
                        help="Output directory (default: real_repo_output)")
     parser.add_argument("--theme", choices=["light", "dark", "system"], default="light", help="Theme for animations")
     parser.add_argument("--length", choices=["short", "medium", "long"], default="medium", help="Video length")
@@ -163,30 +164,18 @@ def main():
     parser.add_argument("--language", default="en", help="Language for narration")
     parser.add_argument("--quality", choices=["720p", "1080p", "4k"], default="1080p", help="Video quality")
     parser.add_argument("--mobile", action="store_true", help="Optimize for mobile devices")
-    parser.add_argument("--dry-run", action="store_true", help="Validate URL and analyze without rendering video")
-
+    
     args = parser.parse_args()
-
+    
     # Validate repository URL
     if not args.repo_url.startswith("https://github.com/"):
         print("Please provide a valid GitHub repository URL")
         print("   Example: https://github.com/user/repo")
         return
-
-    if args.dry_run:
-        print(f"Dry run mode: validating {args.repo_url}")
-        fetcher = RepoFetcher()
-        is_valid, platform, owner, repo_name = fetcher.validate_repo_url(args.repo_url)
-        if not is_valid:
-            print("Invalid repository URL")
-            return
-        print(f"Platform: {platform}, Owner: {owner}, Repo: {repo_name}")
-        print("Dry run complete. URL is valid. No video will be generated.")
-        return
-
+    
     # Process the repository
     success = analyze_github_repo(
-        args.repo_url,
+        args.repo_url, 
         args.output,
         theme=args.theme,
         length=args.length,
@@ -195,7 +184,7 @@ def main():
         quality=args.quality,
         mobile=args.mobile
     )
-
+    
     if success:
         print("\nRepository animation test completed successfully!")
         print("\nNext steps:")

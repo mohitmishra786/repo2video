@@ -7,4 +7,4 @@ for generating voice narration for video scenes.
 
 from .audio_generator import AudioGenerator
 
-__all__ = ['AudioGenerator']
+__all__ = ['AudioGenerator'] 

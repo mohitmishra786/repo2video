@@ -1,6 +1,6 @@
-# Enhanced repo2video Usage Guide
+# Enhanced RepoToVideo Usage Guide
 
-This guide will help you set up and use all the enhanced features of repo2video with detailed debugging information.
+This guide will help you set up and use all the enhanced features of RepoToVideo with detailed debugging information.
 
 ## 🚀 Quick Start
 
@@ -56,10 +56,10 @@ Navigate to `http://localhost:8501` and use the web interface.
 ### Option 2: Programmatic Usage (Advanced Users)
 
 ```python
-from enhanced_example import Enhancedrepo2video
+from enhanced_example import EnhancedRepoToVideo
 
 # Initialize the system
-enhanced_system = Enhancedrepo2video("./your-project")
+enhanced_system = EnhancedRepoToVideo("./your-project")
 
 # Run comprehensive analysis
 analysis = enhanced_system.analyze_project()
@@ -423,7 +423,7 @@ your-project/
 
 ```python
 try:
-    enhanced_system = Enhancedrepo2video("./your-project")
+    enhanced_system = EnhancedRepoToVideo("./your-project")
     analysis = enhanced_system.analyze_project()
 except Exception as e:
     logger.error(f"Analysis failed: {e}")
@@ -435,7 +435,7 @@ except Exception as e:
 ```python
 # Always clean up resources
 try:
-    enhanced_system = Enhancedrepo2video("./your-project")
+    enhanced_system = EnhancedRepoToVideo("./your-project")
     # Your operations here
 finally:
     enhanced_system.cleanup()

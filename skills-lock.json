@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "fastapi-python": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "fastapi-python/SKILL.md",
+      "computedHash": "1d7346210a6690d2faeb089f074c0dc20a7056c2c83ac1062a11c1b73158be72"
+    },
+    "react-nextjs-development": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-nextjs-development/SKILL.md",
+      "computedHash": "f6fccc099580762dc1ffe48d8462c9183f14225a6dd28679cb56a0e5b011669a"
+    }
+  }
+}

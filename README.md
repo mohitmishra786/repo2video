@@ -1,118 +1,128 @@
-# repo2video
+# RepoToVideo
 
-Paste any GitHub URL → Get a 1080p narrated code walkthrough video in minutes. Open source. Free.
-
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B)](https://streamlit.io/)
-[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-pink)](https://github.com/sponsors/mohitmishra786)
-
-## Demo
-
-*A demo video is coming soon. In the meantime, you can generate one yourself by running the tool on its own repository.*
+RepoToVideo is a powerful tool designed to help developers convert GitHub repositories into animated videos. It integrates seamlessly with your development environment to enhance productivity and code quality.
 
 ## Features
 
-- **Repository Fetching** — Clone and process any public GitHub repository
-- **Code Analysis** — AST-based Python analysis with multi-language support
-- **AI Storyboard Generation** — Automatically plan video scenes from code structure
-- **Scene Rendering** — MoviePy-based video scene generation with code display and narration
-- **Text-to-Speech** — Automatic narration via ElevenLabs (or gTTS fallback)
-- **Progress feedback** — Per-scene progress bar during rendering
-- **WebM/GIF support** — Output in MP4, WebM, or GIF formats
-- **Subtitle export** — Automatic SRT subtitle generation from narration
-
-## How It Works
-
-```
-GitHub URL → Clone → Code Analysis → Storyboard Generation → Scene Rendering + Audio → Final Video
-```
-
-1. **Clone**: Fetches the repository contents
-2. **Analyze**: Parses code structure, identifies key files, functions, and classes
-3. **Storyboard**: AI or rule-based planning of animation scenes
-4. **Render**: Each scene becomes a video clip with code display, titles, and narration
-5. **Merge**: All scenes are combined into a single comprehensive video
+- **Repository Fetching**: Efficiently clones and processes GitHub repositories
+- **Code Analysis**: Advanced parsing and understanding of code structure
+- **Animation System**: Creates visually appealing animations of code
+- **Storyboard Generation**: AI-powered planning of animation sequences
+- **Visual Metaphors**: Unique visual representations of code concepts
+- **Audio Generation**: Background music and sound effects
 
 ## Installation
 
-```bash
-git clone https://github.com/mohitmishra786/repo2video.git
-cd repo2video
-pip install -r requirements.txt
-```
+To install RepoToVideo, follow these steps:
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/RepoToVideo.git
+    cd RepoToVideo
+    ```
+
+2. **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3. **Run the application**:
+    ```bash
+    streamlit run app.py
+    ```
 
 ## Usage
 
-### Web UI (recommended)
+Once installed, you can start using RepoToVideo in your development workflow. Here are some common commands:
 
-```bash
-streamlit run app.py
-```
+- **Start the application**:
+    ```bash
+    streamlit run app.py
+    ```
 
-Then open http://localhost:8501 and paste a GitHub URL.
+- **Run tests**:
+    ```bash
+    python test_real_repository.py <github_repo_url>
+    ```
 
-### Command Line
+- **Test repository fetching**:
+    ```bash
+    python -c "from repo_fetcher import RepoFetcher; fetcher = RepoFetcher(); print('RepoFetcher imported successfully')"
+    ```
 
-```bash
-python test_real_repository.py https://github.com/psf/requests
-```
-
-### Options
-
-```bash
-python test_real_repository.py https://github.com/user/repo \
-  --output my_videos \
-  --theme dark \
-  --length medium \
-  --language en \
-  --quality 1080p
-```
+- **Test code analysis**:
+    ```bash
+    python -c "from code_analysis import EnhancedCodeAnalyzer; print('CodeAnalyzer imported successfully')"
+    ```
 
 ## Configuration
 
-Set API keys via environment variables (optional — gTTS fallback works without keys):
+RepoToVideo can be configured to suit your needs. Here are some common configuration options:
 
-```bash
-export ELEVENLABS_API_KEY=your_key        # Premium TTS voices
-export GROQ_API_KEY=your_key               # AI storyboard generation
-```
+- **Enable/disable features**:
+    ```json
+    {
+        "features": {
+            "repositoryFetching": true,
+            "codeAnalysis": true,
+            "animationSystem": true
+        }
+    }
+    ```
 
-Place these in a `.env` file to load automatically.
-
-> **Security Note**: repo2video processes code from GitHub repositories. Only analyze repositories you trust. See [SECURITY.md](SECURITY.md) for details.
-
-## Requirements
-
-- Python 3.9+
-- FFmpeg (for video encoding)
-- Git (for repository cloning)
-- ~500MB disk space for dependencies
+- **Set code style preferences**:
+    ```json
+    {
+        "codeStyle": {
+            "indentation": "spaces",
+            "lineLength": 120
+        }
+    }
+    ```
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+We welcome contributions from the community! Here's how you can contribute:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. **Fork the repository**:
+    - Click the "Fork" button at the top right of the repository page.
+
+2. **Clone your fork**:
+    ```bash
+    git clone https://github.com/your-username/RepoToVideo.git
+    cd RepoToVideo
+    ```
+
+3. **Create a new branch**:
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+
+4. **Make your changes**:
+    - Implement your feature or fix a bug.
+
+5. **Commit your changes**:
+    ```bash
+    git commit -m "Add your commit message here"
+    ```
+
+6. **Push to your fork**:
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+
+7. **Create a pull request**:
+    - Go to the original repository and click "New Pull Request".
+    - Select your fork and branch, then click "Create Pull Request".
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+RepoToVideo is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
-## Support
+## Contact
 
-repo2video is free and open source. If you find it useful, consider [sponsoring the project](https://github.com/sponsors/mohitmishra786) to support ongoing development.
-
-[Join our Discord](https://discord.com/invite/2QWN9y3B9M) for questions, help, and community discussion.
-
-## Status
-
-repo2video is in active early development. Expect rapid changes and occasional bugs. I maintain this in my spare time — updates every 2-4 weeks.
+For questions or support, please open an issue on the [GitHub repository](https://github.com/yourusername/RepoToVideo/issues).
 
 ---
 
-**repo2video** — Turn code into video, automatically.
+**RepoToVideo** - Transform your GitHub repositories into engaging educational videos!

@@ -84,38 +84,38 @@ class ExecutionTrace:
 
 class DataStructureManager:
     """Manager for data structure operations."""
-
+    
     @staticmethod
     def save_storyboard(storyboard: Storyboard, output_path: str) -> str:
         """Save storyboard to JSON file."""
         try:
             # Convert dataclasses to dictionaries
             storyboard_dict = asdict(storyboard)
-
+            
             with open(output_path, 'w') as f:
                 json.dump(storyboard_dict, f, indent=2)
-
+            
             logger.info(f"Storyboard saved to {output_path}")
             return output_path
-
+            
         except Exception as e:
             logger.error(f"Error saving storyboard: {e}")
             raise
-
+    
     @staticmethod
     def load_storyboard(file_path: str) -> Storyboard:
         """Load storyboard from JSON file."""
         try:
             with open(file_path, 'r') as f:
                 storyboard_data = json.load(f)
-
+            
             # Reconstruct dataclass objects
             scenes = []
             for scene_data in storyboard_data['scenes']:
                 visual_elements = [VisualElement(**elem) for elem in scene_data['visual_elements']]
                 animation_sequence = [AnimationStep(**anim) for anim in scene_data['animation_sequence']]
                 camera_movement = CameraMovement(**scene_data['camera_movement'])
-
+                
                 scene = StoryboardScene(
                     id=scene_data['id'],
                     concept=scene_data['concept'],
@@ -129,7 +129,7 @@ class DataStructureManager:
                     metadata=scene_data.get('metadata')
                 )
                 scenes.append(scene)
-
+            
             return Storyboard(
                 title=storyboard_data['title'],
                 description=storyboard_data['description'],
@@ -137,7 +137,7 @@ class DataStructureManager:
                 total_duration=storyboard_data['total_duration'],
                 metadata=storyboard_data['metadata']
             )
-
+            
         except Exception as e:
             logger.error(f"Error loading storyboard: {e}")
-            raise
+            raise 
