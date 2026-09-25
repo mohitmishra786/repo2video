@@ -264,7 +264,7 @@ All operations generate detailed logs in the `logs/` directory:
 ```bash
 # View latest log
 ls -la logs/
-tail -f logs/repotovideo_debug_*.log
+tail -f logs/animation_run_*.log
 ```
 
 ### 2. Common Issues and Solutions
