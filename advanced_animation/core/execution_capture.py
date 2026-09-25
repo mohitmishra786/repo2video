@@ -7,6 +7,7 @@ visualization of algorithm execution traces.
 
 import logging
 import json
+import os
 import time
 from typing import Dict, List, Any
 import ast
@@ -81,13 +82,19 @@ class RuntimeStateCapture:
     def _capture_python_execution(self, code_content: str) -> ExecutionTrace:
         """Capture Python code execution using E2B sandbox.
 
-        Safety: Only executes code if E2B sandbox is available and configured.
-        The sandbox provides network isolation and process limits.
-        Code size is limited and dangerous imports are warned against.
+        Safety: code only runs if the E2B SDK is installed AND ``E2B_API_KEY``
+        is configured. The sandbox is created with a hard wall-clock timeout
+        and outbound internet access disabled (E2B isolates the sandbox
+        filesystem and process space per run; CPU/RAM are bounded by the
+        template). Code size is capped at 1MB.
         """
         MAX_CODE_SIZE_BYTES = 1024 * 1024  # 1MB
 
         try:
+            if not os.getenv("E2B_API_KEY"):
+                logger.warning("E2B_API_KEY not configured, using simulation")
+                return self._simulate_execution_trace(code_content, "python")
+
             code_bytes = code_content.encode("utf-8")
             if len(code_bytes) > MAX_CODE_SIZE_BYTES:
                 logger.error(f"Code too large for E2B execution: {len(code_bytes)} bytes (max {MAX_CODE_SIZE_BYTES})")
@@ -98,52 +105,43 @@ class RuntimeStateCapture:
             # Create instrumented code
             instrumented_code = self._instrument_python_code(code_content)
 
-            with Sandbox(template="base") as sandbox:
+            with Sandbox(
+                template="base",
+                timeout=self.max_execution_time,
+                allow_internet_access=False,
+            ) as sandbox:
                 # Write the instrumented code
-                sandbox.filesystem.write("/main.py", instrumented_code)
-
-                # Start execution
-                proc = sandbox.process.start("python /main.py")
+                sandbox.files.write("/main.py", instrumented_code)
 
                 states = []
                 start_time = time.time()
 
-                while proc.is_running and (time.time() - start_time) < self.max_execution_time:
-                    try:
-                        # Read output
-                        stdout = proc.stdout.read()
-                        stderr = proc.stderr.read()
+                # Run to completion inside the sandbox; the per-command timeout
+                # and the sandbox lifetime both bound the wall-clock time.
+                result = sandbox.commands.run(
+                    "python /main.py",
+                    timeout=self.max_execution_time,
+                )
 
-                        # Get variable states
-                        variables = self._get_python_variables(sandbox)
+                stdout = result.stdout if result else ""
+                stderr = result.stderr if result else ""
 
-                        # Get call stack
-                        call_stack = self._get_python_call_stack(sandbox)
+                # Read the final variable-state snapshot if instrumentation
+                # produced one
+                try:
+                    state_file = sandbox.files.read("/tmp/execution_state.json")
+                    variables = json.loads(state_file) if state_file else {}
+                except Exception:
+                    variables = {}
 
-                        # Create state
-                        state = ExecutionState(
-                            timestamp=time.time() - start_time,
-                            line_number=self._get_current_line(sandbox),
-                            variables=variables,
-                            call_stack=call_stack,
-                            stdout=stdout,
-                            stderr=stderr
-                        )
-
-                        states.append(state)
-
-                        if self.debug_mode:
-                            logger.debug(f"Captured state at {state.timestamp}s: {len(variables)} variables")
-
-                        time.sleep(0.1)  # Capture every 100ms
-
-                    except Exception as e:
-                        logger.error(f"Error capturing state: {e}")
-                        break
-
-                # Final state
-                if proc.is_running:
-                    proc.kill()
+                states.append(ExecutionState(
+                    timestamp=time.time() - start_time,
+                    line_number=0,
+                    variables=variables,
+                    call_stack=[],
+                    stdout=stdout,
+                    stderr=stderr
+                ))
 
                 total_duration = time.time() - start_time
 
@@ -156,6 +154,8 @@ class RuntimeStateCapture:
                     total_duration=total_duration,
                     metadata={
                         "capture_method": "e2b_sandbox",
+                        "network_isolated": True,
+                        "timeout_seconds": self.max_execution_time,
                         "debug_mode": self.debug_mode
                     }
                 )

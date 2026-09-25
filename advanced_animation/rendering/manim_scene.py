@@ -418,6 +418,10 @@ class ManimSceneRenderer:
         """
         Execute code using E2B sandbox environment.
 
+        The sandbox is created with a hard wall-clock timeout and outbound
+        internet access disabled; filesystem and process space are isolated
+        per run by E2B.
+
         Args:
             code: Code to execute
             language: Programming language
@@ -429,41 +433,33 @@ class ManimSceneRenderer:
             return None
 
         try:
-            # Create a sandbox lazily or use existing
-            # Note: For best practice, we create a new sandbox for each execution to ensure isolation
-            # but in a production environment you might want to reuse sandboxes
-            sandbox = e2b.Sandbox.create(template="python")
-
-            # Buffers to collect output
-            stdout_buffer = []
-            stderr_buffer = []
-
-            def on_stdout(output):
-                stdout_buffer.append(output.line)
-
-            def on_stderr(output):
-                stderr_buffer.append(output.line)
-
-            # Write code to a file in the sandbox
-            file_path = f"code.{language}"
-            sandbox.files.write(file_path, code)
-
-            # Execute the code
-            command = "python" if language == "python" else "node"
-            sandbox.commands.run(
-                f"{command} {file_path}",
-                on_stdout=on_stdout,
-                on_stderr=on_stderr,
-                timeout_seconds=20
+            sandbox = e2b.Sandbox.create(
+                template="python",
+                timeout=20,
+                allow_internet_access=False,
             )
 
-            # Clean up
-            sandbox.close()
+            try:
+                # Write code to a file in the sandbox
+                file_path = f"code.{language}"
+                sandbox.files.write(file_path, code)
 
-            if stderr_buffer:
-                return f"Error: {' '.join(stderr_buffer)}"
+                # Execute the code with a per-command timeout
+                command = "python" if language == "python" else "node"
+                result = sandbox.commands.run(
+                    f"{command} {file_path}",
+                    timeout=20,
+                )
+            finally:
+                sandbox.kill()
+
+            stderr = result.stderr if result else ""
+            stdout = result.stdout if result else ""
+
+            if stderr:
+                return f"Error: {stderr}"
             else:
-                return ' '.join(stdout_buffer)
+                return stdout
 
         except Exception as e:
             logger.error(f"E2B execution failed: {e}")
