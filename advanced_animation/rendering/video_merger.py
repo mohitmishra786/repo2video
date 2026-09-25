@@ -233,8 +233,7 @@ class VideoMerger:
                     video_path = Path(video_file)
                     if video_path.exists():
                         # Use absolute path to avoid path issues
-                        f.write(f"file '{video_path.absolute()}'
-")
+                        f.write(f"file '{video_path.absolute()}'\n")
                     else:
                         logger.warning(f"Video file not found: {video_file}")
             
@@ -244,8 +243,7 @@ class VideoMerger:
                     # Audio files are in the main output directory
                     audio_file = self.output_dir / f"scene_{i+1}_narration.mp3"
                     if audio_file.exists():
-                        f.write(f"file '{audio_file.absolute()}'
-")
+                        f.write(f"file '{audio_file.absolute()}'\n")
                         logger.info(f"Found audio file for scene {i+1}: {audio_file}")
                     else:
                         logger.warning(f"No audio file found for scene {i+1}: {audio_file}")
