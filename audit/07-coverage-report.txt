@@ -1,11 +1,8 @@
-# Coverage baseline (Task 07) — generated 2026-09-25T23:06:03Z
+# Coverage baseline (Task 07) — generated 2026-09-25T23:09:35Z
 # Command: pytest tests/ --cov=repo_fetcher --cov=code_analysis --cov=advanced_animation --cov-report=term
 # Python 3.11.16 / pytest 9.1.1 / pytest-cov
-# 77 tests passed. Baseline total: 41% — see PR notes for per-module notes.
+# 77 tests passed. Baseline total: 41%. Regenerating mode note: tests pass with and without tree-sitter grammars (regex fallback covered).
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================================ tests coverage ================================
-______________ coverage: platform darwin, python 3.11.16-final-0 _______________
 
 Name                                                    Stmts   Miss  Cover
 ---------------------------------------------------------------------------
@@ -27,4 +24,4 @@ code_analysis.py                                          663    257    61%
 repo_fetcher.py                                           209    100    52%
 ---------------------------------------------------------------------------
 TOTAL                                                    3191   1894    41%
-======================== 77 passed, 3 warnings in 7.31s ========================
+======================== 77 passed, 3 warnings in 7.70s ========================

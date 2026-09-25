@@ -36,6 +36,7 @@ rich>=14.1.0
 # Subtitle generation
 pysrt>=1.1.1
 
-# Tree-sitter language grammars for JS/Java analysis
+# Tree-sitter core + language grammars for JS/Java analysis
+tree-sitter>=0.20.4
 tree-sitter-javascript>=0.23.0
 tree-sitter-java>=0.23.0
