@@ -76,3 +76,25 @@ inside a `Text("...")` or `code_snippet` literal.
   timeout, resource limits, and network policy (Task 06).
 - Data-exposure sites (#7, #8): out of scope for the injection fix; tracked in
   the security audit's P1 "prompt injection/data leakage" item.
+
+## 4. Task 06 — E2B isolation status (verified against E2B docs + SDK)
+
+Verified capabilities of the E2B sandbox and the Python SDK (e2b 2.51):
+[E2B internet-access docs](https://docs.e2b.dev/network/internet-access),
+[update-sandbox-network API](https://docs.e2b.dev/api-reference/sandboxes/update-sandbox-network).
+
+| Control | SDK support | Status after Task 06 |
+|---|---|---|
+| Timeout | `Sandbox.create(timeout=...)` (sandbox lifetime) and `commands.run(..., timeout=...)` (per command) | Set in both `_capture_python_execution` (execution_capture.py: sandbox + command timeout = `max_execution_time`, default 30s) and `execute_code_with_e2b` (20s both) |
+| Network restriction | `Sandbox.create(allow_internet_access=False)` disables all outbound egress (equivalent to `deny_out: ["0.0.0.0/0"]`) | Set (`allow_internet_access=False`) in both E2B call sites |
+| Resource limits | CPU/RAM are properties of the sandbox *template* (e.g. `base`); the SDK exposes `get_metrics()` but no per-call CPU/mem override | Bounded by template choice + 1MB source cap + short lifetime; per-job spend caps remain a monetization-layer concern (audit/09) |
+| Filesystem isolation | Each sandbox is an isolated VM with its own filesystem; state written to `/tmp` never touches the host | Documented; the capture path reads `/tmp/execution_state.json` from inside the sandbox |
+| Explicit key gate | — | `_capture_python_execution` now requires `E2B_API_KEY` explicitly; without it, the path simulates instead of spawning a sandbox |
+
+Remaining limitations (documented, not fixed here):
+- Sandbox network egress defaults to *allowed* if a future call site omits
+  `allow_internet_access=False`; both current sites set it, but a lint/test
+  guard should watch for regressions.
+- Resource ceilings are template-defined; precise CPU/RAM budgets need the
+  template owner's configuration and are tracked with the monetization work.
+
