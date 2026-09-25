@@ -212,11 +212,15 @@ class TestExecutionOffByDefault:
         from unittest.mock import MagicMock
         import advanced_animation as aa
 
-        # Any attempt to reach the sandbox fails the test
-        monkeypatch.setattr(
-            "advanced_animation.core.execution_capture.Sandbox",
-            MagicMock(side_effect=AssertionError("sandbox executed by default")),
-        )
+        # Any attempt to reach the sandbox fails the test. When the e2b SDK
+        # is not installed there is no Sandbox symbol and execution is
+        # structurally impossible; patch only when the attribute exists.
+        import advanced_animation.core.execution_capture as exec_mod
+        if hasattr(exec_mod, "Sandbox"):
+            monkeypatch.setattr(
+                exec_mod, "Sandbox",
+                MagicMock(side_effect=AssertionError("sandbox executed by default")),
+            )
 
         system = aa.AdvancedAnimationSystem(output_dir=str(tmp_path / "out"))
         capture = system.execution_capture
