@@ -13,6 +13,12 @@ import json
 logger = logging.getLogger(__name__)
 
 try:
+    from .manim_scene import _resolve_font
+except ImportError:
+    def _resolve_font(requested: str = "Arial") -> str:
+        return requested
+
+try:
     from moviepy import VideoFileClip, AudioFileClip, TextClip, ColorClip, CompositeVideoClip, concatenate_videoclips
     _MOVIEPY_IMPORTS = (VideoFileClip, AudioFileClip, TextClip, ColorClip, CompositeVideoClip, concatenate_videoclips)
     del _MOVIEPY_IMPORTS
@@ -162,7 +168,7 @@ class VideoMerger:
                 text=title,
                 font_size=48,
                 color='white',
-                font='Arial-Bold'
+                font=_resolve_font('Arial-Bold')
             ).with_position(('center', 50)).with_duration(3)
 
             # Create subtitle with metadata
@@ -171,7 +177,7 @@ class VideoMerger:
                 text=subtitle_text,
                 font_size=24,
                 color='gray',
-                font='Arial'
+                font=_resolve_font('Arial')
             ).with_position(('center', 100)).with_duration(3)
 
             # Composite the video
