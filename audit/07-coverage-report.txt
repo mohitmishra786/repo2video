@@ -1,0 +1,27 @@
+# Coverage baseline (Task 07) — generated 2026-09-25T23:09:35Z
+# Command: pytest tests/ --cov=repo_fetcher --cov=code_analysis --cov=advanced_animation --cov-report=term
+# Python 3.11.16 / pytest 9.1.1 / pytest-cov
+# 77 tests passed. Baseline total: 41%. Regenerating mode note: tests pass with and without tree-sitter grammars (regex fallback covered).
+
+
+Name                                                    Stmts   Miss  Cover
+---------------------------------------------------------------------------
+advanced_animation/__init__.py                            101     62    39%
+advanced_animation/audio/__init__.py                        2      0   100%
+advanced_animation/audio/audio_generator.py               192    149    22%
+advanced_animation/core/__init__.py                         4      0   100%
+advanced_animation/core/data_structures.py                 90      6    93%
+advanced_animation/core/execution_capture.py              216    156    28%
+advanced_animation/core/storyboard_generator.py           520    229    56%
+advanced_animation/rendering/__init__.py                    2      0   100%
+advanced_animation/rendering/manim_scene.py               619    488    21%
+advanced_animation/rendering/video_merger.py              170    150    12%
+advanced_animation/utils/__init__.py                        2      0   100%
+advanced_animation/utils/logging_config.py                125     53    58%
+advanced_animation/visualizations/__init__.py               2      0   100%
+advanced_animation/visualizations/visual_metaphors.py     274    244    11%
+code_analysis.py                                          663    257    61%
+repo_fetcher.py                                           209    100    52%
+---------------------------------------------------------------------------
+TOTAL                                                    3191   1894    41%
+======================== 77 passed, 3 warnings in 7.70s ========================

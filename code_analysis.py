@@ -588,8 +588,9 @@ class EnhancedCodeAnalyzer:
         imports = []
 
         def walk(node):
-            if node.type in ("function_declaration", "method_definition", "arrow_function",
-                             "function_expression", "generator_function", "constructor"):
+            if node.type in ("function_declaration", "method_definition", "method_declaration",
+                             "arrow_function", "function_expression", "generator_function",
+                             "constructor"):
                 name = self._get_ts_child_text(node, "name", content) or "<anonymous>"
                 functions.append({
                     "name": name,
@@ -603,7 +604,7 @@ class EnhancedCodeAnalyzer:
                 body = node.child_by_field_name("body")
                 if body:
                     for child in body.children:
-                        if child.type in ("method_definition", "constructor"):
+                        if child.type in ("method_definition", "method_declaration", "constructor"):
                             mname = self._get_ts_child_text(child, "name", content) or "<anonymous>"
                             methods.append(mname)
                 classes.append({
