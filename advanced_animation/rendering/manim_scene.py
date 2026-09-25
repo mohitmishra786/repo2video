@@ -5,6 +5,8 @@ This module handles the creation and rendering of ManimGL scenes for
 3Blue1Brown-style animations.
 """
 
+import ast
+import keyword
 import os
 import logging
 import numpy as np
@@ -15,6 +17,46 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..core.data_structures import StoryboardScene, AnimationStep
 from ..visualizations.visual_metaphors import VisualMetaphorLibrary
+
+
+def _safe_python_literal(value: Any) -> str:
+    """
+    Return untrusted text as a safely-escaped Python string literal.
+
+    Values from the analyzed repository (or model output influenced by it)
+    must only ever appear in generated scene code as *data*. ``repr`` escapes
+    quotes, backslashes and newlines, so the result always parses as exactly
+    one string literal and cannot break out into executable code.
+    """
+    return repr(str(value))
+
+
+def _safe_identifier(name: Any) -> str:
+    """
+    Reduce untrusted text to a safe Python identifier fragment.
+
+    Non-identifier characters are replaced with underscores so the value can
+    be used as part of a generated variable name without injection risk.
+    """
+    cleaned = "".join(c if c.isalnum() or c == "_" else "_" for c in str(name or "element"))
+    if not cleaned or not cleaned[0].isalpha() and cleaned[0] != "_":
+        cleaned = "_" + cleaned
+    if keyword.iskeyword(cleaned):
+        cleaned += "_"
+    return cleaned
+
+
+def _safe_number(value: Any, default: float = 0.0) -> str:
+    """
+    Coerce an untrusted numeric value to a plain float literal.
+
+    Anything non-numeric falls back to ``default``; the returned string is
+    guaranteed to be a numeric constant in generated code.
+    """
+    try:
+        return str(float(value))
+    except (TypeError, ValueError):
+        return str(float(default))
 
 # E2B imports for dynamic code execution
 try:
@@ -339,16 +381,32 @@ class ManimSceneRenderer:
         """
         Create a Manim scene file from a storyboard scene.
 
+        The scene code is validated with ``ast.parse`` before it is written:
+        repository-derived strings are embedded as escaped string literals, so
+        any failure to produce parseable code raises instead of writing a file.
+
         Args:
             storyboard_scene: Scene to convert to Manim code
 
         Returns:
             Path to the created scene file
+
+        Raises:
+            ValueError: If the generated scene code does not parse as Python.
         """
         scene_file = self.output_dir / f"scene_{storyboard_scene.id}.py"
 
         # Generate the scene code
         scene_code = self.generate_scene_code(storyboard_scene)
+
+        # Runtime guard: refuse to write anything that is not parseable Python
+        try:
+            ast.parse(scene_code)
+        except SyntaxError as e:
+            logger.error(
+                f"Generated scene code failed validation for scene {storyboard_scene.id}: {e}"
+            )
+            raise ValueError(f"Generated scene code failed validation: {e}")
 
         # Write to file
         with open(scene_file, 'w') as f:
@@ -412,10 +470,60 @@ class ManimSceneRenderer:
             return None
 
 
+    def generate_scene_code(self, storyboard_scene: StoryboardScene) -> str:
+        """
+        Generate Manim scene code from a storyboard scene.
+
+        Repository-derived and model-influenced strings (concept, narration,
+        element text, identifiers) are embedded exclusively as escaped Python
+        string literals or validated identifiers — they are treated as *data*
+        and can never terminate the literal and execute as code.
+
+        Args:
+            storyboard_scene: Scene to convert to code
+
+        Returns:
+            Generated Manim scene code (parseable Python)
+
+        Raises:
+            ValueError: If the assembled scene code fails validation.
+        """
+        scene_class_name = f"Scene{int(storyboard_scene.id)}"
+
+        has_code_execution = any(
+            element.type == "code" and
+            element.properties.get("execute", False)
+            for element in storyboard_scene.visual_elements
+        )
+
+        visual_elements_code, element_var_map = self._generate_visual_elements_code(storyboard_scene)
+
+        title_literal = _safe_python_literal(storyboard_scene.concept or "Untitled Scene")
+
+        scene_code = f"""from manim import *
+
+class {scene_class_name}(Scene):
+    def construct(self):
+        title = Text({title_literal}, font_size=36)
+        title.to_edge(UP)
+        self.play(Write(title))
+        self.wait(1)
+""" + self._get_scene_body(storyboard_scene, has_code_execution, visual_elements_code, element_var_map)
+
+        try:
+            ast.parse(scene_code)
+        except SyntaxError as e:
+            logger.error(
+                f"Generated scene code failed validation for scene {storyboard_scene.id}: {e}"
+            )
+            raise ValueError(f"Generated scene code failed validation: {e}")
+
+        return scene_code
+
     def _get_scene_body(self, storyboard_scene: StoryboardScene, has_code_execution: bool, visual_elements_code: str, element_var_map: dict) -> str:
         # Scene content
         # Truncate narration at word boundary
-        narration = storyboard_scene.narration
+        narration = storyboard_scene.narration or ""
         if len(narration) > 100:
             truncated = narration[:100].rsplit(' ', 1)[0] + "..."
         else:
@@ -423,7 +531,7 @@ class ManimSceneRenderer:
 
         body = f"""
         # Scene content
-        content = Text("{truncated}", font_size=24)
+        content = Text({_safe_python_literal(truncated)}, font_size=24)
         content.next_to(title, DOWN, buff=0.5)
         self.play(Write(content))
         self.wait(2)
@@ -448,10 +556,10 @@ class ManimSceneRenderer:
         code = ""
         element_var_map = {}
         for i, element in enumerate(storyboard_scene.visual_elements):
-            # Derive a safe variable name
+            # Derive a safe variable name (validated identifier, never raw text)
             var_name = element.properties.get("name")
-            if not var_name or not var_name.isidentifier():
-                var_name = f"{element.type.lower()}_{i}"
+            if not isinstance(var_name, str) or not var_name.isidentifier() or keyword.iskeyword(var_name):
+                var_name = f"{_safe_identifier(element.type.lower())}_{i}"
 
             # Map the original identifier (or ID if available) to the variable name
             element_id = element.properties.get("id") or str(i)
@@ -461,15 +569,18 @@ class ManimSceneRenderer:
             text_content = element.properties.get("text") or element.properties.get("value") or ""
 
             if element.type == "Text":
-                code += f'        {var_name} = Text("{text_content}")\n'
+                code += f'        {var_name} = Text({_safe_python_literal(text_content)})\n'
             elif element.type == "Code":
-                code += f'        {var_name} = Code(code="{text_content}", language="python")\n'
+                code += f'        {var_name} = Code(code={_safe_python_literal(text_content)}, language="python")\n'
             else:
-                code += f'        {var_name} = Text("{text_content}")\n'
+                code += f'        {var_name} = Text({_safe_python_literal(text_content)})\n'
 
             # Position
             pos = element.position
-            code += f'        {var_name}.move_to([{pos.get("x", 0)}, {pos.get("y", 0)}, {pos.get("z", 0)}])\n'
+            x = _safe_number(pos.get("x", 0))
+            y = _safe_number(pos.get("y", 0))
+            z = _safe_number(pos.get("z", 0))
+            code += f'        {var_name}.move_to([{x}, {y}, {z}])\n'
 
         return code, element_var_map
 
@@ -485,12 +596,21 @@ class ManimSceneRenderer:
             # Look up the variable name for the target
             target_var = element_var_map.get(step.target, step.target)
 
+            # Only whitelisted actions on validated identifiers are emitted
+            if not isinstance(target_var, str) or not target_var.isidentifier() or keyword.iskeyword(target_var):
+                logger.warning(
+                    f"Skipping animation step {step.action!r} on non-identifier target {step.target!r}"
+                )
+                continue
+
+            run_time = _safe_number(step.duration, default=1.0)
+
             if step.action == "FadeIn":
-                code += f'        self.play(FadeIn({target_var}), run_time={step.duration})\n'
+                code += f'        self.play(FadeIn({target_var}), run_time={run_time})\n'
             elif step.action == "FadeOut":
-                code += f'        self.play(FadeOut({target_var}), run_time={step.duration})\n'
+                code += f'        self.play(FadeOut({target_var}), run_time={run_time})\n'
             elif step.action == "Create":
-                code += f'        self.play(Create({target_var}), run_time={step.duration})\n'
+                code += f'        self.play(Create({target_var}), run_time={run_time})\n'
             # Add more actions as needed
 
         return code
