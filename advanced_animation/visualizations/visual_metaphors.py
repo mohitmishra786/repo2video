@@ -7,12 +7,14 @@ and algorithms used in 3Blue1Brown-style animations.
 
 import logging
 import numpy as np
-from typing import Dict, List, Any, Optional
+from typing import Any
 from ..core.data_structures import VisualElement
 
-# 3D animation imports
+# 3D animation availability probe (the named imports ARE the check)
 try:
     from manimlib import ThreeDScene, ThreeDAxes, Sphere, Arrow3D, Text3D
+    _MANIM_3D_MODULES = (ThreeDScene, ThreeDAxes, Sphere, Arrow3D, Text3D)
+    del _MANIM_3D_MODULES
     MANIM_3D_AVAILABLE = True
 except ImportError:
     MANIM_3D_AVAILABLE = False

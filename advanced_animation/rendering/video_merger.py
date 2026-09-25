@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 try:
     from moviepy import VideoFileClip, AudioFileClip, TextClip, ColorClip, CompositeVideoClip, concatenate_videoclips
+    _MOVIEPY_IMPORTS = (VideoFileClip, AudioFileClip, TextClip, ColorClip, CompositeVideoClip, concatenate_videoclips)
+    del _MOVIEPY_IMPORTS
     MOVIEPY_AVAILABLE = True
 except ImportError:
     MOVIEPY_AVAILABLE = False
@@ -58,16 +60,14 @@ class VideoMerger:
 
             # Create video clips with audio
             clips = []
-            audio_files = []
 
             for i, video_file in enumerate(video_files):
                 if Path(video_file).exists():
                     # Load video clip
                     clip = VideoFileClip(video_file)
 
-                    # Look for corresponding audio file
-                    video_path = Path(video_file)
-                    # Audio files are in the main output directory, not in the video subdirectories
+                    # Look for corresponding audio file (files are in the main
+                    # output directory, not in the video subdirectories)
                     audio_file = self.output_dir / f"scene_{i+1}_narration.mp3"
 
                     if audio_file.exists():

@@ -10,23 +10,23 @@ import json
 import logging
 import openai
 from typing import Dict, List, Any, Optional
-from pathlib import Path
-import time
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 from .data_structures import (
     Storyboard, StoryboardScene, VisualElement,
     AnimationStep, CameraMovement, DataStructureManager
 )
 
+# Load environment variables
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 # Advanced AI integration imports
 try:
     from langchain_openai import OpenAI
+    _LANGCHAIN_OPENAI_PROBE = OpenAI
+    del _LANGCHAIN_OPENAI_PROBE
     OPENAI_LLM_AVAILABLE = True
 except ImportError as exc:
     logger.info("LangChain OpenAI not available: %s", exc)
@@ -34,6 +34,8 @@ except ImportError as exc:
 
 try:
     from langchain_groq import ChatGroq as Groq
+    _LANGCHAIN_GROQ_PROBE = Groq
+    del _LANGCHAIN_GROQ_PROBE
     GROQ_LLM_AVAILABLE = True
 except ImportError as exc:
     logger.info("LangChain Groq not available: %s", exc)
@@ -968,11 +970,12 @@ class StoryboardGenerator:
 
         logger.info(f"Total metrics: {len(languages)} languages ({list(languages)}), {total_lines} lines, {functions} functions, {classes} classes")
 
-        # Get additional data for metadata
-        file_structure = self._get_file_structure(code_analysis)
-        complexity_metrics = self._get_complexity_metrics(code_analysis)
-        functions_list = self._get_functions_list(code_analysis)
-        data_structures = self._get_data_structures(code_analysis)
+        # Compute additional data for metadata (results flow into scene
+        # metadata via the helper side effects)
+        self._get_file_structure(code_analysis)
+        self._get_complexity_metrics(code_analysis)
+        self._get_functions_list(code_analysis)
+        self._get_data_structures(code_analysis)
 
         visual_elements = [
             VisualElement(

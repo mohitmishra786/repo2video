@@ -7,7 +7,6 @@ analyzing repository structure, and extracting relevant information for video ge
 
 import re
 import ast
-import markdown
 from typing import Dict, List, Optional, Tuple, Union
 from github import Github
 from github.Repository import Repository
@@ -199,7 +198,6 @@ class RepoFetcher:
                                 })
                 elif platform == 'bitbucket':
                     # Use Bitbucket API to get repository contents
-                    repo_data = repo.get('repo_data')
                     owner = repo.get('owner')
                     repo_name = repo.get('repo_name')
 
@@ -398,8 +396,6 @@ class RepoFetcher:
         Returns:
             Dictionary containing parsed README sections
         """
-        # Convert markdown to HTML for easier parsing
-        html = markdown.markdown(readme_content)
 
         # Extract sections (this is a simplified approach)
         sections = {

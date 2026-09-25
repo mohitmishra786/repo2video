@@ -6,9 +6,8 @@ from code repositories using ManimGL and AI-powered storyboarding.
 """
 
 import logging
-import os
-from typing import Dict, List, Any, Optional
 import time
+from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -32,6 +31,15 @@ from .visualizations.visual_metaphors import VisualMetaphorLibrary
 from .rendering.manim_scene import AdvancedManimScene, ManimSceneRenderer
 from .rendering.video_merger import VideoMerger
 from .audio.audio_generator import AudioGenerator
+
+__all__ = [
+    "Storyboard", "StoryboardScene", "VisualElement",
+    "AnimationStep", "CameraMovement", "ExecutionState", "ExecutionTrace",
+    "StoryboardGenerator", "RuntimeStateCapture", "VisualMetaphorLibrary",
+    "AdvancedManimScene", "ManimSceneRenderer", "VideoMerger", "AudioGenerator",
+    "AdvancedAnimationSystem", "create_animation", "generate_storyboard",
+    "capture_execution",
+]
 
 class AdvancedAnimationSystem:
     """Main orchestrator for the advanced animation system."""

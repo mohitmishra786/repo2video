@@ -7,7 +7,6 @@ This module defines the basic data structures used throughout the advanced anima
 import logging
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Any, Optional
-from pathlib import Path
 import json
 
 logger = logging.getLogger(__name__)

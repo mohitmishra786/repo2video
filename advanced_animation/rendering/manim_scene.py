@@ -726,7 +726,6 @@ class {scene_class_name}(Scene):
         languages = repo_data.get('languages', [])
         lines_of_code = repo_data.get('lines_of_code', 0)
         functions = repo_data.get('functions', 0)
-        classes = repo_data.get('classes', 0)
 
         return f'''
         # Create overview metrics based on actual repository data
@@ -768,7 +767,6 @@ class {scene_class_name}(Scene):
     def _generate_structure_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate file structure content based on actual repository data."""
         files = repo_data.get('files', 0)
-        languages = repo_data.get('languages', [])
 
         # Generate dynamic file structure based on repository data
         if files <= 5:
@@ -912,7 +910,6 @@ class {scene_class_name}(Scene):
 
     def _generate_function_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate function call graph content based on actual repository data."""
-        functions_list = repo_data.get('functions_list', [])
         functions_count = repo_data.get('functions', 0)
 
         if not functions_list and functions_count > 0:
@@ -984,9 +981,6 @@ class {scene_class_name}(Scene):
 
     def _generate_ast_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate AST visualization content based on actual repository data."""
-        functions = repo_data.get('functions', 0)
-        classes = repo_data.get('classes', 0)
-        files = repo_data.get('files', 0)
 
         # Generate dynamic AST nodes based on repository structure
         nodes = []
@@ -1047,8 +1041,6 @@ class {scene_class_name}(Scene):
 
     def _generate_execution_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate execution flow content based on actual repository data."""
-        functions = repo_data.get('functions', 0)
-        functions_list = repo_data.get('functions_list', [])
 
         # Generate dynamic execution steps based on repository complexity
         if functions > 5:
@@ -1111,8 +1103,6 @@ class {scene_class_name}(Scene):
 
     def _generate_data_structure_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate data structure visualization content based on actual repository data."""
-        files = repo_data.get('files', 0)
-        functions = repo_data.get('functions', 0)
 
         # Determine which data structures to show based on repository complexity
         if files > 10:
@@ -1166,7 +1156,6 @@ class {scene_class_name}(Scene):
 
     def _generate_performance_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate performance analysis content based on actual repository data."""
-        functions = repo_data.get('functions', 0)
         lines_of_code = repo_data.get('lines_of_code', 0)
 
         # Calculate average function length
@@ -1212,11 +1201,7 @@ class {scene_class_name}(Scene):
 
     def _generate_summary_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate summary content based on actual repository data."""
-        files = repo_data.get('files', 0)
-        languages = repo_data.get('languages', [])
         lines_of_code = repo_data.get('lines_of_code', 0)
-        functions = repo_data.get('functions', 0)
-        classes = repo_data.get('classes', 0)
 
         lang_str = f"{len(languages)} language{'s' if len(languages) != 1 else ''}"
 
@@ -1251,8 +1236,6 @@ class {scene_class_name}(Scene):
 
     def _generate_generic_content(self, storyboard_scene: StoryboardScene, repo_data: dict) -> str:
         """Generate generic content for unknown scene types based on repository data."""
-        files = repo_data.get('files', 0)
-        functions = repo_data.get('functions', 0)
 
         # Create dynamic visualization based on repository size
         if files > 10:
