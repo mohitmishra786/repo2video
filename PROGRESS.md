@@ -44,9 +44,27 @@ pytest ×3.9–3.12, ruff, import-check, pip-audit).
 | Launch timing / channels (Show HN, Product Hunt) | Gated on the P0 checklist being green — it now is, minus the sample videos | `audit/06-pre-launch-checklist.md` P2 |
 | Copyright confirmation | `LICENSE` says "Mohit Mishra" (restored in #55); confirm correct owner | `audit/10-security-legal-audit.md` open question |
 
+## Follow-up run — dependency vulnerability sweep (PR #68)
+
+Re-applied the closed Dependabot PR #52 (Next.js 14.2.35 → 16.3.6, React
+19.2) on the repaired main. Its CI had failed only because it branched off
+the broken 'scrap' state, not because of the bump. This closes all 23 open
+Dependabot alerts (every one was `next` in `frontend/package.json`), adds a
+committed `package-lock.json` (first lockfile in the repo), a working
+`npm run lint` (Next 16 removed `next lint`), and a new `frontend-build`
+CI gate (npm ci + npm audit + lint + build) so the frontend can no longer
+break silently — CI is now 9 green checks.
+
+Remaining advisories are unchanged from the dispositions in
+`audit/09-dependency-audit.txt`: pillow (35) and click (1) are blocked by
+upstream caps verified in the installed metadata (`moviepy 2.2.1:
+pillow<12.0`, `gtts 2.5.4: click<8.2`, both latest releases); diskcache
+(no fix exists) is a hard manimgl dependency; setuptools is held <81 for
+manimgl's `pkg_resources`. These stay behind the warn-only pip-audit gate.
+
 ## Current state
 
-- CI: 8 green checks on every PR (compile-check, pytest 3.9/3.10/3.11/3.12, ruff, import-check, warn-only pip-audit)
+- CI: 9 green checks on every PR (compile-check, pytest 3.9/3.10/3.11/3.12, ruff, import-check, warn-only pip-audit, frontend-build)
 - Tests: 78 passing, offline, ~7s; injection-safety regression suite included
 - Security: repo-derived text can no longer execute as Python; E2B execution is opt-in, network-isolated, and timeout-bounded
 - Lint: `ruff check .` → 0 findings

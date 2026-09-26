@@ -67,6 +67,9 @@ export default function Home() {
     }, 1000);
   }, [stopPolling]);
 
+  const isFormStage = (s: JobState['status']) => s === 'idle' || s === 'failed';
+  const isBusy = (s: JobState['status']) => !isFormStage(s);
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!repoUrl) return;
@@ -124,7 +127,7 @@ export default function Home() {
         Paste a GitHub URL &mdash; Get a narrated code walkthrough video in minutes.
       </p>
 
-      {job.status === 'idle' || job.status === 'failed' ? (
+      {isFormStage(job.status) ? (
         <form onSubmit={handleGenerate} className="space-y-4">
           <input
             type="url"
@@ -161,7 +164,7 @@ export default function Home() {
               <option value="gif">GIF</option>
             </select>
           </div>
-          <button type="submit" disabled={!repoUrl || job.status === 'running'}
+          <button type="submit" disabled={!repoUrl || isBusy(job.status)}
             className="w-full p-4 bg-[#238636] hover:bg-[#2ea043] disabled:opacity-50 disabled:cursor-not-allowed
                        text-white font-semibold rounded-lg transition-colors text-sm">
             Generate Video
