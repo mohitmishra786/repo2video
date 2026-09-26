@@ -287,3 +287,7 @@ test_output_final_fix/
 test_output_fixed/.agents/
 .claude/
 skills-lock.json
+
+# Next.js build output
+.next/
+next-env.d.ts
