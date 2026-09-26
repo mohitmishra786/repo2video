@@ -113,3 +113,33 @@ jobs:
       - name: Audit dependencies (warn-only)
         run: |
           pip-audit -r requirements.txt --desc || true
+
+  # Gate 5: frontend build + lint. The Next.js frontend had no CI job, which
+  # is how the v14->v16 bump needed to be verified manually; this keeps the
+  # npm side from silently breaking (and validates the lockfile).
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Audit npm dependencies (warn-only)
+        run: npm audit --audit-level=high || true
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
