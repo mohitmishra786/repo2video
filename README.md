@@ -6,6 +6,7 @@ Paste any GitHub URL → Get a 1080p narrated code walkthrough video in minutes.
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B)](https://streamlit.io/)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-pink)](https://github.com/sponsors/mohitmishra786)
+[![Landing](https://img.shields.io/badge/site-mohitmishra786.github.io%2Frepo2video-blue)](https://mohitmishra786.github.io/repo2video/)
 
 ## Demo
 
