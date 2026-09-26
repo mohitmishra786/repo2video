@@ -19,6 +19,31 @@ from ..core.data_structures import StoryboardScene, AnimationStep
 from ..visualizations.visual_metaphors import VisualMetaphorLibrary
 
 
+def _resolve_font(requested: str = "Arial") -> str:
+    """
+    Return the first renderable font from a small preference list.
+
+    Linux containers and slim CI images often lack the macOS/Windows system
+    fonts hardcoded in the scene builders; without a fallback, MoviePy's
+    TextClip raises at render time and every scene degrades to a blank.
+    """
+    from PIL import ImageFont
+
+    base = requested.replace("-Bold", "").replace("-Regular", "")
+    candidates = [
+        requested, base, base.replace("-", " "),
+        "DejaVuSans", "LiberationSans-Regular", "NotoSans-Regular",
+    ]
+    for name in candidates:
+        for ext in ("ttf", "otf", "ttc"):
+            try:
+                ImageFont.truetype(f"{name}.{ext}", 20)
+                return f"{name}.{ext}"
+            except Exception:
+                continue
+    return requested
+
+
 def _safe_python_literal(value: Any) -> str:
     """
     Return untrusted text as a safely-escaped Python string literal.
@@ -1419,7 +1444,7 @@ AnimationStep(
                 text=wrapped_title,
                 font_size=48,
                 color=title_color,
-                font="Arial-Bold",
+                font=_resolve_font("Arial-Bold"),
                 size=(1800, 100),
                 method="caption",
                 text_align="center"
@@ -1432,7 +1457,7 @@ AnimationStep(
                     text=code_display,
                     font_size=22,
                     color="#c5d4e8",
-                    font="Courier-New",
+                    font=_resolve_font("Courier-New"),
                     size=(1800, 600),
                     method="label",
                     text_align="left",
@@ -1446,7 +1471,7 @@ AnimationStep(
                     text=subtitle_lines,
                     font_size=28,
                     color="#cccccc",
-                    font="Arial",
+                    font=_resolve_font("Arial"),
                     size=(1800, 120),
                     method="caption",
                     text_align="center",
@@ -1458,7 +1483,7 @@ AnimationStep(
                 text=f"Scene {storyboard_scene.id}",
                 font_size=20,
                 color="#666688",
-                font="Arial"
+                font=_resolve_font("Arial")
             ).with_position((30, 1040)).with_duration(duration)
             clips.append(scene_label)
 
@@ -1571,7 +1596,7 @@ AnimationStep(
                 text=concept[:80],
                 font_size=48,
                 color="white",
-                font="Arial-Bold",
+                font=_resolve_font("Arial-Bold"),
                 size=(1800, 200),
                 method="caption"
             ).with_position("center").with_duration(duration)

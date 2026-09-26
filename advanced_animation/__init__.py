@@ -62,13 +62,15 @@ class AdvancedAnimationSystem:
 
         logger.info("AdvancedAnimationSystem initialized")
     def create_animation_from_code(self, code_analysis: Dict[str, Any],
-                                 capture_execution: bool = True) -> str:
+                                 capture_execution: bool = False) -> str:
         """
         Create a complete animation from code analysis.
 
         Args:
             code_analysis: Code analysis results
-            capture_execution: Whether to capture runtime execution
+            capture_execution: Whether to capture runtime execution (requires
+                an explicit E2B_API_KEY; disabled by default so untrusted
+                repository code is never executed unless opted in)
 
         Returns:
             Path to the final video file

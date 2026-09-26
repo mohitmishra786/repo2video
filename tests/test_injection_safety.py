@@ -199,3 +199,47 @@ class TestE2BGate:
         trace = capture.capture_execution(payload, "python")
         assert trace.metadata.get("capture_method") == "simulation"
         assert not (tmp_path / PAYLOAD_MARKER_NAME).exists()
+
+
+class TestExecutionOffByDefault:
+    def test_create_animation_from_code_does_not_execute_by_default(self, tmp_path, monkeypatch):
+        repo = _make_malicious_repo(tmp_path)
+        analysis = EnhancedCodeAnalyzer(str(repo)).analyze_project()
+
+        # Pretend E2B is fully configured — the default must still not execute
+        monkeypatch.setenv("E2B_API_KEY", "test-key-not-real")
+
+        from unittest.mock import MagicMock
+        import advanced_animation as aa
+
+        # Any attempt to reach the sandbox fails the test. When the e2b SDK
+        # is not installed there is no Sandbox symbol and execution is
+        # structurally impossible; patch only when the attribute exists.
+        import advanced_animation.core.execution_capture as exec_mod
+        if hasattr(exec_mod, "Sandbox"):
+            monkeypatch.setattr(
+                exec_mod, "Sandbox",
+                MagicMock(side_effect=AssertionError("sandbox executed by default")),
+            )
+
+        system = aa.AdvancedAnimationSystem(output_dir=str(tmp_path / "out"))
+        capture = system.execution_capture
+        capture.capture_execution = MagicMock(
+            side_effect=AssertionError("capture_execution invoked by default")
+        )
+
+        # Stub the expensive/audio/render stages — this test is only about
+        # the execution-capture default, not the render pipeline.
+        system.audio_generator.generate_storyboard_audio = MagicMock(return_value={})
+        system.scene_renderer.render_scene = MagicMock(return_value="stub.mp4")
+        system.video_merger.merge_scenes = MagicMock(return_value="stub.mp4")
+
+        import logging
+        logging.disable(logging.CRITICAL)
+        try:
+            system.create_animation_from_code(analysis)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        capture.capture_execution.assert_not_called()
+        assert not (tmp_path / PAYLOAD_MARKER_NAME).exists()
